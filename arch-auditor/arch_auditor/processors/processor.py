@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from arch_auditor.system_state import SystemState
 
 
 class Processor(ABC):
-    def __init__(self, system_state):
+    def __init__(self, system_state: SystemState):
         self.system_state = system_state
 
     @abstractmethod
