@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from arch_auditor.system_state import SystemState
+from arch_auditor.context import AuditContext
 
 
 class Processor(ABC):
-    def __init__(self, system_state: SystemState):
-        self.system_state = system_state
+    def __init__(self, context: AuditContext):
+        self.context = context
 
     @abstractmethod
     def name() -> str:

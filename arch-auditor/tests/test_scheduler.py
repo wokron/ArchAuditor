@@ -1,6 +1,7 @@
 from arch_auditor.processors.processor import Processor, ProcessorRegistry
 from arch_auditor.system_state import SystemState
 from arch_auditor.scheduler import Scheduler
+from arch_auditor.context import AuditContext
 
 
 class MockProcessor1(Processor):
@@ -16,7 +17,7 @@ class MockProcessor1(Processor):
         return True
 
     def process(self) -> None:
-        self.system_state.extra_attrs["order"].append("MockProcessor1")
+        self.context.system_state.extra_attrs["order"].append("MockProcessor1")
 
     @staticmethod
     def has_visualization() -> bool:
@@ -39,7 +40,7 @@ class MockProcessor2(Processor):
         return True
 
     def process(self) -> None:
-        self.system_state.extra_attrs["order"].append("MockProcessor2")
+        self.context.system_state.extra_attrs["order"].append("MockProcessor2")
 
     @staticmethod
     def has_visualization() -> bool:
@@ -62,7 +63,7 @@ class MockProcessor3(Processor):
         return True
 
     def process(self) -> None:
-        self.system_state.extra_attrs["order"].append("MockProcessor3")
+        self.context.system_state.extra_attrs["order"].append("MockProcessor3")
 
     @staticmethod
     def has_visualization() -> bool:
@@ -78,14 +79,15 @@ registry.register(MockProcessor2)
 registry.register(MockProcessor3)
 
 system_state = SystemState()
+context = AuditContext(system_state)
 
 
 def test_scheduler_order():
     system_state.extra_attrs["order"] = []
     processors = [
-        MockProcessor3(system_state),
-        MockProcessor1(system_state),
-        MockProcessor2(system_state),
+        MockProcessor3(context),
+        MockProcessor1(context),
+        MockProcessor2(context),
     ]
     scheduler = Scheduler(processors)
     scheduler.process()
