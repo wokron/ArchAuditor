@@ -1,5 +1,5 @@
 from arch_auditor.arch_auditor import ArchAuditor
-from arch_auditor.processors.processor import Processor, ProcessorRegistry
+from arch_auditor.processors import Processor, ProcessorRegistry
 
 
 class MockProcessor(Processor):

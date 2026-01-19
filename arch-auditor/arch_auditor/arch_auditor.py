@@ -1,6 +1,9 @@
 from arch_auditor.system_state import SystemState
-from arch_auditor.processors.processor import ProcessorRegistry, ProcessorsBuilder
-from arch_auditor.processors import native_registry
+from arch_auditor.processors import (
+    ProcessorRegistry,
+    ProcessorsBuilder,
+    native_registry,
+)
 from arch_auditor.reporter import ConsoleReporter, Reporter
 from arch_auditor.scheduler import Scheduler
 from arch_auditor.context import AuditContext

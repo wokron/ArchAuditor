@@ -1,4 +1,4 @@
-from arch_auditor.processors.processor import Processor
+from arch_auditor.processors import Processor
 
 
 class Scheduler:

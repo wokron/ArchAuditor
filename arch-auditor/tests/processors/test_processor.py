@@ -1,6 +1,5 @@
 import pytest
-from arch_auditor.processors.processor import Processor
-from arch_auditor.processors.processor import ProcessorRegistry, ProcessorsBuilder
+from arch_auditor.processors import Processor, ProcessorRegistry, ProcessorsBuilder
 from arch_auditor.system_state import SystemState
 
 

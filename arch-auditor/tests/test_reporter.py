@@ -1,4 +1,4 @@
-from arch_auditor.processors.processor import Processor, ProcessorRegistry
+from arch_auditor.processors import Processor, ProcessorRegistry
 from arch_auditor.system_state import SystemState
 from arch_auditor.scheduler import Scheduler
 from arch_auditor.context import AuditContext
