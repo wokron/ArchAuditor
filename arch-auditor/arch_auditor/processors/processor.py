@@ -56,13 +56,19 @@ class ProcessorRegistry:
     def get(self, name: str) -> type[Processor] | None:
         return self._registry.get(name)
 
+    def join(self, other: "ProcessorRegistry") -> None:
+        self._registry.update(other._registry)
+
 
 class ProcessorsBuilder:
     def __init__(
-        self, processors_config, system_state, processors_registry: ProcessorRegistry
+        self,
+        processors_config: dict[str, Any],
+        context: AuditContext,
+        processors_registry: ProcessorRegistry,
     ):
-        self.config: dict[str, Any] = processors_config
-        self.system_state = system_state
+        self.config = processors_config
+        self.context = context
         self.registry = processors_registry
 
     def build_processors(self) -> list[Processor]:
@@ -80,7 +86,7 @@ class ProcessorsBuilder:
                 if require_name not in processors:
                     build_all(require_name)
 
-            processor_instance = processor_cls(self.system_state)
+            processor_instance = processor_cls(self.context)
             config = self.config.get(name, None)
             if not processor_instance.init(config):
                 raise ValueError(f"Failed to initialize processor '{name}'.")
