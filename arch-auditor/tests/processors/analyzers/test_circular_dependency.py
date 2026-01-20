@@ -12,9 +12,6 @@ class MockReporter(Reporter):
 
 
 def test_circular_dependency_analyze():
-
-    priority_manager = InMemoryPriorityManager()
-
     config = {
         "processors": {
             "ServiceGraphSource": {

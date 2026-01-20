@@ -1,5 +1,5 @@
 from .processor import Processor, ProcessorRegistry, ProcessorsBuilder
-from .analyzers import CircularDependencyAnalyzer
+from .analyzers import CircularDependencyAnalyzer, PriorityCheckAnalyzer
 from .sources import ServicePrioritySource, ServiceGraphSource, ServiceDependencySource
 
 native_registry = ProcessorRegistry()
@@ -8,6 +8,7 @@ native_registry.register(CircularDependencyAnalyzer)
 native_registry.register(ServicePrioritySource)
 native_registry.register(ServiceGraphSource)
 native_registry.register(ServiceDependencySource)
+native_registry.register(PriorityCheckAnalyzer)
 #### Register native processors end ####
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "ServicePrioritySource",
     "ServiceGraphSource",
     "ServiceDependencySource",
+    "PriorityCheckAnalyzer",
 ]
