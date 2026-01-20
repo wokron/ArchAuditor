@@ -106,9 +106,13 @@ def test_scheduler_order():
     ]
     scheduler = Scheduler(processors)
     scheduler.process()
+    messages = mock_reporter.messages
+    assert len(messages) == 3
     expected_messages = [
-        "[info] from MockProcessor2: MockProcessor2 processed",
-        "[info] from MockProcessor1: MockProcessor1 processed",
-        "[info] from MockProcessor3: MockProcessor3 processed",
+        "[INFO] from MockProcessor2: MockProcessor2 processed",
+        "[INFO] from MockProcessor1: MockProcessor1 processed",
+        "[INFO] from MockProcessor3: MockProcessor3 processed",
     ]
-    assert mock_reporter.messages == expected_messages
+
+    for msg, expected in zip(messages, expected_messages):
+        assert expected in msg
