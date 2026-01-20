@@ -2,3 +2,4 @@ from .service_priority import ServicePrioritySource
 from .service_graph import ServiceGraphSource
 from .service_dependency import ServiceDependencySource
 from .single_root_dag import SingleRootDAGSource
+from .k8s_config import K8sConfigSource

@@ -3,12 +3,14 @@ from .analyzers import (
     CircularDependencyAnalyzer,
     PriorityCheckAnalyzer,
     SinglePointAnalyzer,
+    K8sConfigAnalyzer,
 )
 from .sources import (
     ServicePrioritySource,
     ServiceGraphSource,
     ServiceDependencySource,
     SingleRootDAGSource,
+    K8sConfigSource,
 )
 
 native_registry = ProcessorRegistry()
@@ -20,6 +22,8 @@ native_registry.register(ServiceDependencySource)
 native_registry.register(PriorityCheckAnalyzer)
 native_registry.register(SingleRootDAGSource)
 native_registry.register(SinglePointAnalyzer)
+native_registry.register(K8sConfigSource)
+native_registry.register(K8sConfigAnalyzer)
 #### Register native processors end ####
 
 __all__ = [
@@ -34,4 +38,5 @@ __all__ = [
     "PriorityCheckAnalyzer",
     "SingleRootDAGSource",
     "SinglePointAnalyzer",
+    "K8sConfigSource",
 ]

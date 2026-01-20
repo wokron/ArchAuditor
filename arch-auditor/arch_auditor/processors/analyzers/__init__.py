@@ -1,3 +1,4 @@
 from .circular_dependency import CircularDependencyAnalyzer
 from .priority_check import PriorityCheckAnalyzer
 from .single_point import SinglePointAnalyzer
+from .k8s_config import K8sConfigAnalyzer
