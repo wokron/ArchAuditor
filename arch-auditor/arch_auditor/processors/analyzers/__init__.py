@@ -1,2 +1,3 @@
 from .circular_dependency import CircularDependencyAnalyzer
 from .priority_check import PriorityCheckAnalyzer
+from .single_point import SinglePointAnalyzer
