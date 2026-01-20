@@ -36,10 +36,7 @@ class ArchAuditService:
             config=self.config, registry=registry, reporter=self.reporter
         )
 
-        for processor in self.arch_auditor.processors:
-            if processor.name() == "ServicePrioritySource":
-                self.priority_manager = processor.priority_manager
-                break
+        self.priority_manager = self.arch_auditor.priority_manager
 
         self.app = FastAPI(lifespan=self._generate_time_scheduler_lifespan())
         self._setup_routes()

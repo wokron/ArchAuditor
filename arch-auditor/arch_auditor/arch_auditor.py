@@ -41,5 +41,11 @@ class ArchAuditor:
 
         self.scheduler = Scheduler(self.processors)
 
+        self.priority_manager = None
+        for processor in self.processors:
+            if processor.name() == "ServicePrioritySource":
+                self.priority_manager = processor.priority_manager
+                break
+
     def invoke(self) -> None:
         self.scheduler.process()
