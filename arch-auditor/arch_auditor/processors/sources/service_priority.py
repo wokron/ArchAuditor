@@ -16,7 +16,8 @@ class ServicePrioritySource(Processor):
         return []  # TODO: Add dependencies
 
     def init(self, config) -> bool:
-        assert isinstance(config, PriorityManager)
+        if not isinstance(config, PriorityManager):
+            return False
         self.priority_manager = config
         return True
 
