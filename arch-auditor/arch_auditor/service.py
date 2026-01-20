@@ -66,10 +66,10 @@ class ArchAuditService:
 
         vis = APIRouter()
 
-        def list_processors():
+        def list_processors_with_vis():
             return [processor.name() for processor in processors_with_vis]
 
-        vis.get("/")(list_processors)
+        vis.get("/")(list_processors_with_vis)
 
         for processor in processors_with_vis:
             vis.get(f"/{processor.name()}")(processor.visualize)
