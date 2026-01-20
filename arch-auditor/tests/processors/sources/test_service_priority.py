@@ -12,8 +12,6 @@ class MockReporter(Reporter):
 
 
 def test_service_priority_source():
-    priority_manager = InMemoryPriorityManager()
-
     config = {
         "processors": {
             "ServiceGraphSource": {
@@ -23,12 +21,21 @@ def test_service_priority_source():
                     ("ServiceB", "ServiceC"),
                 ],
             },
-            "ServicePrioritySource": priority_manager,
+            "ServicePrioritySource": {
+                "type": "InMemory",
+            },
         }
     }
 
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
+
+    priority_manager = None
+    for processor in auditor.processors:
+        if processor.name() == "ServicePrioritySource":
+            priority_manager = processor.priority_manager
+            break
+    assert priority_manager is not None
 
     priority_manager.set_priority("ServiceA", 1)
     priority_manager.set_priority("ServiceB", 2)

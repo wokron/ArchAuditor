@@ -24,14 +24,10 @@ class ArchAuditService:
     def __init__(
         self,
         config: dict,
-        priority_manager: PriorityManager,
         registry: ProcessorRegistry | None = None,
     ):
-        self.priority_manager = priority_manager
+        self.priority_manager = None
         self.config = config
-        self.config.setdefault("processors", {})[
-            "ServicePrioritySource"
-        ] = self.priority_manager
 
         self.time_scheduler = AsyncIOScheduler()
 
@@ -39,6 +35,11 @@ class ArchAuditService:
         self.arch_auditor = ArchAuditor(
             config=self.config, registry=registry, reporter=self.reporter
         )
+
+        for processor in self.arch_auditor.processors:
+            if processor.name() == "ServicePrioritySource":
+                self.priority_manager = processor.priority_manager
+                break
 
         self.app = FastAPI(lifespan=self._generate_time_scheduler_lifespan())
         self._setup_routes()
@@ -51,10 +52,12 @@ class ArchAuditService:
         api = APIRouter()
 
         api.post("/audit")(self.trigger_audit)
-        api.get("/priorities")(self.list_priorities)
-        api.get("/priorities/{service}")(self.get_priority)
-        api.post("/priorities/{service}/{priority}")(self.post_priority)
         api.get("/reports")(self.list_reports)
+
+        if self.priority_manager is not None:
+            api.get("/priorities")(self.list_priorities)
+            api.get("/priorities/{service}")(self.get_priority)
+            api.post("/priorities/{service}/{priority}")(self.post_priority)
 
         self.app.include_router(api, prefix="/api")
 
@@ -121,7 +124,6 @@ class ArchAuditService:
 if __name__ == "__main__":
     import argparse
     import yaml
-    from arch_auditor.priority_manager import InMemoryPriorityManager
 
     parser = argparse.ArgumentParser(description="Arch Audit Service")
     parser.add_argument(
@@ -140,6 +142,5 @@ if __name__ == "__main__":
     if config is None:
         config = {}
 
-    priority_manager = InMemoryPriorityManager()
-    service = ArchAuditService(config=config, priority_manager=priority_manager)
+    service = ArchAuditService(config=config)
     service.run(host=args.host, port=args.port)

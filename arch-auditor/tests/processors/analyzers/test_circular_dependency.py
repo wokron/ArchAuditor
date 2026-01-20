@@ -30,7 +30,9 @@ def test_circular_dependency_analyze():
                     ("A", "D"),  # No cycle here
                 ],
             },
-            "ServicePrioritySource": priority_manager,
+            "ServicePrioritySource": {
+                "type": "InMemory",
+            },
             "CircularDependencyAnalyzer": {},
         }
     }

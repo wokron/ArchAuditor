@@ -1,11 +1,9 @@
 from ...processors import Processor
-from arch_auditor.priority_manager import PriorityManager
+from arch_auditor.priority_manager import PriorityManager, InMemoryPriorityManager
 
 
 class ServicePrioritySource(Processor):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.priority_manager: PriorityManager = None
+    priority_manager: PriorityManager = None
 
     @staticmethod
     def name() -> str:
@@ -15,11 +13,16 @@ class ServicePrioritySource(Processor):
     def requires() -> list[str]:
         return ["ServiceGraphSource"]
 
-    def init(self, config) -> bool:
-        if not isinstance(config, PriorityManager):
+    def init(self, config: dict) -> bool:
+        type = config.get("type", None)
+        if type is None:
             return False
-        self.priority_manager = config
-        return True
+
+        if type == "InMemory":
+            self.priority_manager = InMemoryPriorityManager()
+            return True
+        else:
+            return False
 
     def process(self) -> None:
         G = self.context.system_state.graph
