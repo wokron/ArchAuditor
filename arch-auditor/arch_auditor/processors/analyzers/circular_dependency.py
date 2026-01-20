@@ -10,7 +10,7 @@ class CircularDependencyAnalyzer(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return []  # TODO: Add dependencies
+        return ["ServicePrioritySource"]
 
     def init(self, config) -> bool:
         return True

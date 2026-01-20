@@ -1,1 +1,2 @@
 from .service_priority import ServicePrioritySource
+from .service_graph import ServiceGraphSource

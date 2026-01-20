@@ -13,7 +13,7 @@ class ServicePrioritySource(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return []  # TODO: Add dependencies
+        return ["ServiceGraphSource"]
 
     def init(self, config) -> bool:
         if not isinstance(config, PriorityManager):

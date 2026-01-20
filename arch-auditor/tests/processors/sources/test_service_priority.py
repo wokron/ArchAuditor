@@ -16,6 +16,13 @@ def test_service_priority_source():
 
     config = {
         "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("ServiceA", "ServiceB"),
+                    ("ServiceB", "ServiceC"),
+                ],
+            },
             "ServicePrioritySource": priority_manager,
         }
     }
@@ -23,12 +30,6 @@ def test_service_priority_source():
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
 
-    edges = [
-        ("ServiceA", "ServiceB"),
-        ("ServiceB", "ServiceC"),
-    ]
-
-    auditor.system_state.graph.add_edges_from(edges)
     priority_manager.set_priority("ServiceA", 1)
     priority_manager.set_priority("ServiceB", 2)
 
