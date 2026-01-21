@@ -17,7 +17,7 @@ class K8sConfigAnalyzer(Processor):
         return True
 
     def process(self) -> None:
-        k8s_configs = self.context.system_state.get("k8s_configs", [])
+        k8s_configs = self.context.system_state.extra_attrs.get("k8s_configs", [])
         for config in k8s_configs:
             # TODO: Implement actual analysis logic
             pass

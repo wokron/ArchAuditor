@@ -17,7 +17,8 @@ class ReportMessage:
         self.message = message
 
     def __str__(self):
-        return f"[{self.ts.strftime("%Y-%m-%d %H:%M:%S")}] [{self.report_type.value}] from {self.report_from}: {self.message}"
+        ts = self.ts.strftime("%Y-%m-%d %H:%M:%S")
+        return f"[{ts}] [{self.report_type.value}] from {self.report_from}: {self.message}"
 
 
 class Reporter(ABC):
