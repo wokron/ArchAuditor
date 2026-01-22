@@ -428,7 +428,7 @@
         async function refreshReports() {
             const reports = await jsonFetch("/api/reports");
             const count = Array.isArray(reports) ? reports.length : "?";
-            $(reportsTag).textContent = count; // Keep the number but don't reset class logic excessively
+            $("reportsTag").textContent = count; // Keep the number but don't reset class logic excessively
             const lines = Array.isArray(reports) ? reports.slice().reverse() : [String(reports)];
             $("reportsBox").textContent = lines.join("\n") || "// No reports generated yet.";
         }
