@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ArchAuditor Dashboard</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            /* 科技蓝 */
+            --primary-hover: #1d4ed8;
+            --bg-body: #f1f5f9;
+            /* 浅灰背景 */
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .nav-links {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .nav-links code {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #334155;
+        }
+
+        .nav-links a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+            gap: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        /* Components */
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
+            background: white;
+            color: #475569;
+        }
+
+        button:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: #334155;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        /* Primary Button Style */
+        button.primary {
+            background: var(--primary);
+            color: white;
+            border: 1px solid var(--primary);
+        }
+
+        button.primary:hover {
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+            color: white;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            outline: none;
+            transition: border 0.2s, box-shadow 0.2s;
+            font-size: 0.9rem;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Terminal/Code Box */
+        pre {
+            font-family: "JetBrains Mono", Consolas, Monaco, monospace;
+            font-size: 0.85rem;
+            background: #1e293b;
+            /* Dark terminal */
+            color: #a5f3fc;
+            /* Light Cyan text */
+            padding: 16px;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 300px;
+            margin-top: 16px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid #334155;
+        }
+
+        /* Tags */
+        .tag {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 99px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tag.default {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .tag.active {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        /* Green */
+        .tag.blue {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+        }
+
+        /* Blue */
+
+        /* Status Text */
+        .status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            min-height: 20px;
+            font-style: italic;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 16px;
+            font-size: 0.9rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            background: #f8fafc;
+        }
+
+        th:first-child {
+            border-top-left-radius: 6px;
+        }
+
+        th:last-child {
+            border-top-right-radius: 6px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Links list */
+        ul.vis-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        ul.vis-list li {
+            margin-bottom: 8px;
+        }
+
+        ul.vis-list a {
+            display: block;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            text-decoration: none;
+            color: var(--primary);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        ul.vis-list a:hover {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            user-select: none;
+        }
+
+        .muted-block {
+            color: var(--text-muted);
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>ArchAuditor 控制面板</h1>
+            <div class="nav-links">
+                <span>API: <code>/api/*</code></span>
+                <span>Visualizations: <code>/vis/*</code></span>
+                <span>Swagger: <a href="/docs" target="_blank">/docs &rarr;</a></span>
+            </div>
+        </header>
+
+        <div class="grid">
+            <section class="card">
+                <div class="card-header">
+                    <h2>Audit</h2>
+                    <span class="tag default" id="auditTag">idle</span>
+                </div>
+                <div class="row">
+                    <button id="btnAudit" class="primary">手动触发 Audit</button>
+                    <button id="btnRefreshAll">刷新全部</button>
+                </div>
+                <div class="status" id="auditStatus" style="margin-top: 12px;"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Reports</h2>
+                    <span class="tag blue" id="reportsTag">0</span>
+                </div>
+                <div class="row">
+                    <button id="btnRefreshReports">刷新 Reports</button>
+                    <label class="checkbox-wrapper">
+                        <input id="chkAutoRefresh" type="checkbox" />
+                        <span style="color: var(--text-muted);">自动刷新 (5s)</span>
+                    </label>
+                </div>
+                <pre id="reportsBox" aria-label="reports"></pre>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Service Priorities</h2>
+                    {% if priority_enabled %}
+                    <span class="tag active">enabled</span>
+                    {% else %}
+                    <span class="tag default">disabled</span>
+                    {% endif %}
+                </div>
+
+                {% if priority_enabled %}
+                <div class="row">
+                    <input id="priorityService" placeholder="Service Name (e.g. ServiceA)"
+                        style="flex: 1; min-width: 150px;" />
+                    <input id="priorityValue" placeholder="Priority (Int)" type="number" style="width: 100px;" />
+                    <button id="btnSetPriority" class="primary">保存</button>
+                    <button id="btnRefreshPriorities">刷新</button>
+                </div>
+                <div class="status" id="priorityStatus" style="margin-top: 12px;"></div>
+                <table aria-label="priorities" id="prioritiesTable">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Priority (Lower is Higher)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                {% else %}
+                <div class="muted-block">
+                    当前配置未启用 <code>ServicePrioritySource</code>，<br>因此不会注册 <code>/api/priorities*</code> 接口。
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Visualizations</h2>
+                    <span class="tag blue" id="visTag">0</span>
+                </div>
+                <div class="row" style="margin-bottom: 12px;">
+                    <button id="btnRefreshVis">刷新可视化列表</button>
+                </div>
+                <div id="visList"></div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        function $(id) { return document.getElementById(id); }
+
+        async function jsonFetch(url, opts) {
+            const res = await fetch(url, opts || {});
+            if (!res.ok) {
+                const text = await res.text().catch(() => "");
+                throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
+            }
+            const ct = res.headers.get("content-type") || "";
+            if (ct.includes("application/json")) return await res.json();
+            return await res.text();
+        }
+
+        function setTag(id, text) {
+            const el = $(id);
+            el.textContent = String(text);
+            // Simple dynamic styling based on content
+            if (text === 'running') { el.className = 'tag active'; el.style.color = '#eab308'; el.style.background = '#fef9c3'; el.style.borderColor = '#fef08a'; }
+            else if (text === 'done') { el.className = 'tag active'; }
+            else if (text === 'error') { el.className = 'tag'; el.style.color = '#ef4444'; el.style.background = '#fee2e2'; el.style.borderColor = '#fecaca'; }
+            else { el.className = 'tag default'; el.removeAttribute('style'); }
+        }
+
+        function setStatus(id, text) { $(id).textContent = text || ""; }
+
+        async function refreshReports() {
+            const reports = await jsonFetch("/api/reports");
+            const count = Array.isArray(reports) ? reports.length : "?";
+            $(reportsTag).textContent = count; // Keep the number but don't reset class logic excessively
+            const lines = Array.isArray(reports) ? reports.slice().reverse() : [String(reports)];
+            $("reportsBox").textContent = lines.join("\n") || "// No reports generated yet.";
+        }
+
+        async function refreshVis() {
+            const items = await jsonFetch("/vis/");
+            const list = Array.isArray(items) ? items : [];
+            $("visTag").textContent = list.length;
+            const html = list.length
+                ? `<ul class="vis-list">${list.map(n => `<li><a href="/vis/${encodeURIComponent(n)}">📊 ${n}</a></li>`).join("")}</ul>`
+                : `<div class="muted-block">暂无可视化 Processor<br><small>需要某个 Processor 的 <code>has_visualization()</code> 返回 True</small></div>`;
+            $("visList").innerHTML = html;
+        }
+
+        async function refreshPriorities() {
+            const data = await jsonFetch("/api/priorities");
+            const entries = Object.entries(data || {}).sort((a, b) => a[0].localeCompare(b[0]));
+            const tbody = $("prioritiesTable").querySelector("tbody");
+            if (entries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color: #94a3b8;">No priorities set</td></tr>`;
+            } else {
+                tbody.innerHTML = entries.map(([svc, pr]) => `<tr><td>${svc}</td><td>${pr}</td></tr>`).join("");
+            }
+        }
+
+        async function refreshAll() {
+            // Add a visual indicator that we are refreshing (optional, simplistic)
+            const btn = $('btnRefreshAll');
+            const origText = btn.textContent;
+            btn.textContent = "Refreshing...";
+            btn.disabled = true;
+
+            await Promise.allSettled([
+                refreshReports(),
+                refreshVis(),
+                {% if priority_enabled %}
+        refreshPriorities()
+        {% else %}
+        Promise.resolve()
+        {% endif %}
+        ]);
+
+        btn.textContent = origText;
+        btn.disabled = false;
+      }
+
+        async function triggerAudit() {
+            setTag("auditTag", "running");
+            setStatus("auditStatus", "Running audit...");
+            try {
+                await jsonFetch("/api/audit", { method: "POST" });
+                setTag("auditTag", "done");
+                setStatus("auditStatus", "Audit completed.");
+            } catch (e) {
+                setTag("auditTag", "error");
+                setStatus("auditStatus", `Audit failed: ${e.message}`);
+            } finally {
+                await refreshAll();
+            }
+        }
+
+        async function setPriority() {
+            const svc = $("priorityService").value.trim();
+            const pr = $("priorityValue").value.trim();
+            if (!svc || pr === "") {
+                setStatus("priorityStatus", "Please provide both service and priority.");
+                return;
+            }
+            setStatus("priorityStatus", "Saving...");
+            try {
+                await jsonFetch(`/api/priorities/${encodeURIComponent(svc)}/${encodeURIComponent(pr)}`, { method: "POST" });
+                setStatus("priorityStatus", "Saved.");
+                await refreshPriorities();
+                // Clear inputs for better UX
+                $("priorityService").value = "";
+                $("priorityValue").value = "";
+            } catch (e) {
+                setStatus("priorityStatus", `Save failed: ${e.message}`);
+            }
+        }
+
+        $("btnAudit").addEventListener("click", () => triggerAudit());
+        $("btnRefreshAll").addEventListener("click", () => refreshAll());
+        $("btnRefreshReports").addEventListener("click", () => refreshReports().catch(e => setStatus("auditStatus", e.message)));
+        $("btnRefreshVis").addEventListener("click", () => refreshVis().catch(e => setStatus("auditStatus", e.message)));
+
+        {% if priority_enabled %}
+        $("btnSetPriority").addEventListener("click", () => setPriority());
+        $("btnRefreshPriorities").addEventListener("click", () => refreshPriorities().catch(e => setStatus("priorityStatus", e.message)));
+        {% endif %}
+
+        let timer = null;
+        $("chkAutoRefresh").addEventListener("change", (ev) => {
+            if (ev.target.checked) {
+                refreshReports(); // trigger once immediately
+                timer = setInterval(() => refreshReports().catch(() => { }), 5000);
+            } else if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        });
+
+        refreshAll().catch(() => { });
+    </script>
+</body>
+
+</html>

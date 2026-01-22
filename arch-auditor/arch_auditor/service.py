@@ -1,4 +1,8 @@
-from fastapi import APIRouter, FastAPI
+from pathlib import Path
+
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from arch_auditor.priority_manager import PriorityManager
 from arch_auditor.arch_auditor import ArchAuditor
 from arch_auditor.processors import ProcessorRegistry
@@ -39,6 +43,12 @@ class ArchAuditService:
         self.priority_manager = self.arch_auditor.priority_manager
 
         self.app = FastAPI(lifespan=self._generate_time_scheduler_lifespan())
+
+        # Resolve templates relative to this module so the app can be started
+        # from any working directory.
+        templates_dir = Path(__file__).resolve().parent / "templates"
+        self.templates = Jinja2Templates(directory=str(templates_dir))
+
         self._setup_routes()
 
     def _setup_routes(self):
@@ -59,6 +69,21 @@ class ArchAuditService:
         self.app.include_router(api, prefix="/api")
 
     def _setup_web_routes(self):
+        # Control panel (dashboard)
+        @self.app.get("/", response_class=HTMLResponse)
+        def dashboard(request: Request):
+            return self.templates.TemplateResponse(
+                "dashboard.html",
+                {
+                    "request": request,
+                    "priority_enabled": self.priority_manager is not None,
+                },
+            )
+
+        @self.app.get("/dashboard", response_class=HTMLResponse)
+        def dashboard_alias(request: Request):
+            return dashboard(request)
+
         processors_with_vis: list[Processor] = []
         for processor in self.arch_auditor.processors:
             if processor.has_visualization():
