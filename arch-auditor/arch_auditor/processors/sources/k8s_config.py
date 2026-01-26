@@ -11,7 +11,6 @@ except ImportError:
 
 
 class K8sConfigSource(Processor):
-    #从 K8s 集群获取资源配置
     
     @staticmethod
     def name() -> str:
@@ -22,9 +21,6 @@ class K8sConfigSource(Processor):
         return []
 
     def init(self, config_dict: dict) -> bool:
-        # TODO: Initialization logic for K8sConfigSource
-        # e.g., get data source from config
-        
         self.k8s_config = config_dict or {}
         self.namespaces = self.k8s_config.get(
             "namespaces", 
@@ -32,12 +28,7 @@ class K8sConfigSource(Processor):
         )
         
         if not K8S_AVAILABLE:
-            self.context.reporter.report(ReportMessage(
-                self.name(),
-                ReportType.WARNING,
-                "kubernetes not installed"
-            ))
-            return True
+            return False
         
         try:
             kubeconfig_path = self.k8s_config.get("kubeconfig", None)
@@ -52,12 +43,6 @@ class K8sConfigSource(Processor):
             self.v1 = client.CoreV1Api()
             self.apps_v1 = client.AppsV1Api()
             self.autoscaling_v1 = client.AutoscalingV1Api()
-            
-            self.context.reporter.report(ReportMessage(
-                self.name(),
-                ReportType.INFO,
-                f"K8s client initialized, namespaces: {self.namespaces}"
-            ))
             return True
             
         except Exception as e:
@@ -69,15 +54,6 @@ class K8sConfigSource(Processor):
             return False
 
     def process(self) -> None:
-        self.context.system_state.extra_attrs.setdefault("k8s_configs", [])
-        # TODO: Processing logic to extract K8s configurations from somewhere
-        
-        if not K8S_AVAILABLE:
-            self.context.reporter.report(ReportMessage(
-                self.name(), ReportType.ERROR, "kubernetes failed"
-            ))
-            return
-        
         k8s_configs = {
             "deployments": [],
             "services": [],
@@ -92,16 +68,8 @@ class K8sConfigSource(Processor):
             self._fetch_namespace_resources(ns, k8s_configs)
         
         self.context.system_state.extra_attrs["k8s_configs"] = k8s_configs
-        
-        total = sum(len(v) for v in k8s_configs.values())
-        self.context.reporter.report(ReportMessage(
-            self.name(),
-            ReportType.INFO,
-            f" {total}  K8s"
-        ))
 
     def _fetch_namespace_resources(self, ns: str, k8s_configs: dict) -> None:
-        #获取指定 namespace 的资源
         self._fetch_deployments(ns, k8s_configs)
         self._fetch_services(ns, k8s_configs)
         self._fetch_pods(ns, k8s_configs)
