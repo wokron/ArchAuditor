@@ -24,8 +24,9 @@ class SinglePointAnalyzer(Processor):
         if len(roots) != 1:
             self.context.reporter.report(
                 ReportMessage(
-                    ReportType.ERROR,
-                    f"The service graph should have a single root, found {len(roots)} roots: {roots}",
+                    report_from=self.name(),
+                    report_type=ReportType.ERROR,
+                    message=f"The service graph should have a single root, found {len(roots)} roots: {roots}",
                 )
             )
             return
