@@ -1,6 +1,0 @@
-processors:
-  ServiceGraphSource:
-    type: Mock
-    edges: []
-  ServicePrioritySource:
-    type: InMemory
