@@ -1,3 +1,4 @@
+from fastapi.responses import HTMLResponse
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
 from typing import Any
@@ -120,8 +121,13 @@ class K8sConfigAnalyzer(Processor):
 
     @staticmethod
     def has_visualization() -> bool:
-        return False
+        return True
 
     def visualize(self):
         # TODO: Implement actual visualization logic
-        pass
+        items = ["item1", "item2", "item3"]
+        html = "<html><body><ul>"
+        for item in items:
+            html += f"<li>{item}</li>"
+        html += "</ul></body></html>"
+        return HTMLResponse(content=html)
