@@ -4,6 +4,7 @@ from .analyzers import (
     PriorityCheckAnalyzer,
     SinglePointAnalyzer,
     K8sConfigAnalyzer,
+    OverDecompositionAnalyzer,
 )
 from .sources import (
     ServicePrioritySource,
@@ -24,6 +25,7 @@ native_registry.register(SingleRootDAGSource)
 native_registry.register(SinglePointAnalyzer)
 native_registry.register(K8sConfigSource)
 native_registry.register(K8sConfigAnalyzer)
+native_registry.register(OverDecompositionAnalyzer)
 #### Register native processors end ####
 
 __all__ = [
@@ -39,4 +41,6 @@ __all__ = [
     "SingleRootDAGSource",
     "SinglePointAnalyzer",
     "K8sConfigSource",
+    "K8sConfigAnalyzer",
+    "OverDecompositionAnalyzer",
 ]

@@ -37,6 +37,5 @@ class ServiceDependencySource(Processor):
     def has_visualization() -> bool:
         return False
 
-    @staticmethod
-    def visualize():
+    def visualize(self):
         pass
