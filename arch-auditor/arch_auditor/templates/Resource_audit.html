@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ArchAuditor - 资源审计与逻辑流</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1173d4",
+                        "deep-blue": "#0b1d36","secondary-text": "#64748b",
+                        "border-light": "#e2e8f0",
+                        "surface-light": "#ffffff",
+                        "bg-page": "#ffffff",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-bg-page text-slate-800 font-display overflow-x-hidden min-h-screen flex flex-col">
+<header class="w-full bg-surface-light border-b border-border-light px-6 py-3 sticky top-0 z-50 shadow-sm">
+<div class="max-w-[1280px] mx-auto flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">grid_view</span>
+</div>
+<h2 class="text-deep-blue text-xl font-bold leading-tight tracking-[-0.015em]">ArchAuditor</h2>
+</div>
+<div class="hidden md:flex flex-1 justify-end gap-8 items-center">
+<nav class="flex items-center gap-6">
+<a class="text-secondary-text hover:text-primary text-sm font-medium transition-colors" href="/vis/ControlCenterVisualization" data-preserve-query="true">仪表盘</a>
+<a class="text-primary text-sm font-bold" href="/vis/ResourceAuditVisualization" data-preserve-query="true">资源审计</a>
+<a class="text-secondary-text hover:text-primary text-sm font-medium transition-colors" href="/vis/ServiceAnalysisVisualization?issueType=hierarchy" data-preserve-query="true">处理器</a>
+<a class="text-secondary-text hover:text-primary text-sm font-medium transition-colors" href="#">设置</a>
+</nav>
+<div class="h-6 w-px bg-border-light"></div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-9 border border-border-light cursor-pointer shadow-sm" data-alt="User profile avatar gradient" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXKE-5gIP1i3D9MPojY6XsWvH4ZNaG6-EY2iALpyRHygaPBltCm3ymnEkrMAkifDs5cv-SRQT6fy5BZGPJVbffD9zaKtdL85juLLEK9EI19lu00yb1yuLuzXzJp5z2fFyJpWElJwVUfgl5yGYV1ksS5AqQjN5PDl5_RMYvTNGbWdQBl2ViOdinG03k4zbfB8_-VlSIs3XJMQ9QBTUF0fgGqtWwiX2Q9obCvjb0IN1Fs41cOnY-vWiFAZMGDxtxoRhgLj1QCFEzpx1G");'>
+</div>
+</div>
+<button class="md:hidden text-slate-600">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</header>
+<main class="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-6 py-8 space-y-10">
+<div class="flex flex-wrap items-center gap-2 text-sm">
+<a class="text-secondary-text hover:text-primary transition-colors" href="/vis/ControlCenterVisualization" data-preserve-query="true">仪表盘</a>
+<span class="text-secondary-text material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-deep-blue font-medium">资源审计与逻辑流</span>
+<a class="ml-3 text-secondary-text hover:text-primary transition-colors" href="/vis/ControlCenterVisualization" data-preserve-query="true">返回控制中心</a>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+<div class="flex flex-col gap-2">
+<h1 class="text-deep-blue text-3xl md:text-4xl font-extrabold tracking-tight">资源审计与逻辑流</h1>
+<p class="text-secondary-text text-base font-normal max-w-2xl">
+                    评估云原生架构性能，修复 K8s 配置偏差，实时监控系统状态处理器 (SystemState Processor)。
+                </p>
+</div>
+<div class="flex gap-3">
+<button id="btnExportReports" class="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-border-light hover:bg-slate-50 text-slate-700 text-sm font-bold transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span>导出报告</span>
+</button>
+<button id="btnAuditNow" class="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary hover:bg-blue-600 text-white text-sm font-bold shadow-[0_4px_14px_rgba(17,115,212,0.3)] transition-all">
+<span class="material-symbols-outlined text-[20px] animate-pulse">refresh</span>
+<span>立即审计</span>
+</button>
+</div>
+</div>
+<section class="flex flex-col gap-5">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<h2 class="text-deep-blue text-xl font-bold tracking-tight" data-audit-heading>K8s 资源配置问题</h2>
+<div class="flex flex-wrap gap-3">
+<button class="group flex h-9 items-center justify-between gap-3 rounded-lg bg-white border border-border-light px-3 hover:border-primary/50 transition-colors shadow-sm">
+<span class="text-secondary-text text-sm font-medium group-hover:text-deep-blue">严重程度: 全部</span>
+<span class="material-symbols-outlined text-secondary-text text-[20px]">arrow_drop_down</span>
+</button>
+<button class="group flex h-9 items-center justify-between gap-3 rounded-lg bg-white border border-border-light px-3 hover:border-primary/50 transition-colors shadow-sm">
+<span class="text-secondary-text text-sm font-medium group-hover:text-deep-blue">命名空间: 全部</span>
+<span class="material-symbols-outlined text-secondary-text text-[20px]">arrow_drop_down</span>
+</button>
+<button class="group flex h-9 items-center justify-between gap-3 rounded-lg bg-white border border-border-light px-3 hover:border-primary/50 transition-colors shadow-sm">
+<span class="text-secondary-text text-sm font-medium group-hover:text-deep-blue">问题类型: 全部</span>
+<span class="material-symbols-outlined text-secondary-text text-[20px]">arrow_drop_down</span>
+</button>
+</div>
+</div>
+<div class="w-full overflow-hidden rounded-xl border border-border-light bg-white shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-border-light bg-slate-50/50">
+<th class="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">服务名称</th>
+<th class="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">问题类型</th>
+<th class="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">严重程度</th>
+<th class="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">命名空间</th>
+<th class="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">修复建议</th>
+<th class="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">操作</th>
+</tr>
+</thead>
+<tbody id="resourceIssuesBody" class="divide-y divide-border-light">
+<tr>
+<td class="py-4 px-6 text-sm text-secondary-text" colspan="6">正在加载资源审计数据...</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex items-center justify-between px-6 py-3 border-t border-border-light bg-slate-50">
+<span class="text-sm text-secondary-text">显示 <span id="issueCountCurrent" class="text-deep-blue font-bold">0</span> / <span id="issueCountTotal" class="text-deep-blue font-bold">0</span> 个问题</span>
+<div class="flex gap-2">
+<button class="p-1 rounded hover:bg-slate-200 text-slate-400 disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-1 rounded hover:bg-slate-200 text-deep-blue">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="lg:col-span-2 rounded-xl border border-border-light bg-white shadow-sm overflow-hidden flex flex-col">
+<div class="flex items-center justify-between px-6 py-4 border-b border-border-light bg-slate-50/50">
+<h3 class="text-deep-blue text-lg font-bold">审计日志</h3>
+<span id="auditLogStatus" class="text-xs text-secondary-text"></span>
+</div>
+<div class="p-6">
+<div id="auditLogList" class="space-y-4 text-sm text-slate-700">正在加载审计日志...</div>
+</div>
+</div>
+<div class="flex flex-col gap-6">
+<div class="rounded-xl border border-border-light bg-white shadow-sm overflow-hidden flex flex-col">
+<div class="flex items-center justify-between px-6 py-4 border-b border-border-light bg-slate-50/50">
+<h3 class="text-deep-blue text-lg font-bold">服务优先级</h3>
+<button id="btnRefreshPriorities" class="text-sm font-bold text-primary hover:text-blue-600">刷新</button>
+</div>
+<div class="p-6 flex flex-col gap-4">
+<div class="flex flex-wrap items-center gap-2">
+<input id="priorityService" class="rounded-lg border border-border-light bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Service Name" type="text"/>
+<input id="priorityValue" class="rounded-lg border border-border-light bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-28" placeholder="Priority" type="number"/>
+<button id="btnSavePriority" class="rounded-lg border border-primary bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">保存</button>
+</div>
+<div id="priorityStatus" class="text-xs text-secondary-text"></div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead class="bg-slate-50/70 text-slate-500 uppercase text-xs font-bold tracking-wider">
+<tr>
+<th class="py-3 px-4">服务</th>
+<th class="py-3 px-4">优先级</th>
+</tr>
+</thead>
+<tbody id="prioritiesTableBody" class="divide-y divide-border-light">
+<tr>
+<td class="py-3 px-4 text-secondary-text" colspan="2">暂无优先级配置</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="rounded-xl border border-border-light bg-white shadow-sm overflow-hidden flex flex-col">
+<div class="flex items-center justify-between px-6 py-4 border-b border-border-light bg-slate-50/50">
+<h3 class="text-deep-blue text-lg font-bold">可视化入口</h3>
+<button id="btnRefreshVis" class="text-sm font-bold text-primary hover:text-blue-600">刷新</button>
+</div>
+<div class="p-6">
+<div id="visStatus" class="text-xs text-secondary-text mb-3"></div>
+<ul id="visList" class="space-y-2 text-sm text-slate-700">
+<li class="text-secondary-text">正在加载可视化入口...</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<section class="flex flex-col gap-5 pt-4">
+<div class="flex items-center justify-between">
+<h2 class="text-deep-blue text-xl font-bold tracking-tight">Processor 逻辑流</h2>
+<div class="flex items-center gap-2">
+<span id="healthStatusDot" class="block size-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></span>
+<span id="healthStatusLabel" class="text-sm text-green-600 font-bold">系统健康</span>
+</div>
+</div>
+<div class="relative w-full bg-white border border-border-light rounded-xl p-6 md:p-10 overflow-hidden shadow-sm">
+<div class="absolute inset-0 z-0 opacity-40" style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-center">
+<div class="flex flex-col gap-6 relative">
+<h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">input</span> 源处理器 (Source)
+                        </h3>
+<div class="group relative bg-white border border-border-light hover:border-primary/50 rounded-lg p-4 transition-all hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-1 cursor-default">
+<div class="flex justify-between items-start mb-3">
+<div class="size-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined">api</span>
+</div>
+<span class="size-2.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
+</div>
+<h4 class="text-deep-blue text-sm font-bold mb-1">K8s API 抓取器</h4>
+<div class="flex justify-between items-center">
+<span class="text-secondary-text text-xs">延迟: 12ms</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+<div class="hidden lg:block absolute -right-[6px] top-1/2 -translate-y-1/2 size-3 bg-border-light border border-white rounded-full z-20 group-hover:bg-primary transition-colors"></div>
+</div>
+<div class="group relative bg-white border border-border-light hover:border-primary/50 rounded-lg p-4 transition-all hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-1 cursor-default">
+<div class="flex justify-between items-start mb-3">
+<div class="size-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
+<span class="material-symbols-outlined">local_fire_department</span>
+</div>
+<span class="size-2.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
+</div>
+<h4 class="text-deep-blue text-sm font-bold mb-1">Prometheus 接入</h4>
+<div class="flex justify-between items-center">
+<span class="text-secondary-text text-xs">延迟: 45ms</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+<div class="hidden lg:block absolute -right-[6px] top-1/2 -translate-y-1/2 size-3 bg-border-light border border-white rounded-full z-20 group-hover:bg-primary transition-colors"></div>
+</div>
+<div class="group relative bg-white border border-border-light hover:border-primary/50 rounded-lg p-4 transition-all hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-1 cursor-default opacity-90">
+<div class="flex justify-between items-start mb-3">
+<div class="size-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500">
+<span class="material-symbols-outlined">search</span>
+</div>
+<span class="size-2.5 rounded-full border-2 border-slate-300"></span>
+</div>
+<h4 class="text-deep-blue text-sm font-bold mb-1">Jaeger 链路追踪</h4>
+<div class="flex justify-between items-center">
+<span class="text-secondary-text text-xs">状态: 空闲</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+<div class="hidden lg:block absolute -right-[6px] top-1/2 -translate-y-1/2 size-3 bg-border-light border border-white rounded-full z-20 group-hover:bg-primary transition-colors"></div>
+</div>
+</div>
+<div class="hidden lg:block absolute left-[32%] top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-border-light to-transparent"></div>
+<div class="hidden lg:block absolute right-[32%] top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-border-light to-transparent"></div>
+<div class="flex flex-col gap-6 justify-center h-full">
+<h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2 text-center flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">hub</span> 聚合层 (SystemState)
+                        </h3>
+<div class="relative bg-gradient-to-b from-blue-50 to-white border border-blue-100 rounded-xl p-6 shadow-md shadow-blue-100/50 flex flex-col items-center text-center z-10">
+<div class="absolute inset-0 rounded-xl border border-primary/20 animate-pulse"></div>
+<div class="size-16 rounded-full bg-white flex items-center justify-center text-primary mb-4 shadow-sm ring-4 ring-blue-50">
+<span class="material-symbols-outlined text-3xl">memory</span>
+</div>
+<h3 class="text-deep-blue text-lg font-bold mb-1">SystemState 核心</h3>
+<p class="text-secondary-text text-xs mb-4">正在聚合 3 个数据流</p>
+<div class="w-full h-px bg-blue-100 mb-4"></div>
+<div class="grid grid-cols-2 gap-4 w-full">
+<div>
+<p class="text-slate-400 text-[10px] uppercase font-bold">吞吐量</p>
+<p class="text-deep-blue text-sm font-mono font-bold">1.2k ops/s</p>
+</div>
+<div>
+<p class="text-slate-400 text-[10px] uppercase font-bold">缓冲区</p>
+<p class="text-deep-blue text-sm font-mono font-bold">12%</p>
+</div>
+</div>
+<div class="hidden lg:block absolute -left-3 top-1/2 -translate-y-1/2 text-border-light">
+<span class="material-symbols-outlined rotate-180">play_arrow</span>
+</div>
+<div class="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 text-border-light">
+<span class="material-symbols-outlined">play_arrow</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-6 relative">
+<h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2 flex items-center justify-end gap-2">
+                            分析器 (Analyzers) <span class="material-symbols-outlined text-sm">analytics</span>
+</h3>
+<div class="group relative bg-white border border-border-light hover:border-primary/50 rounded-lg p-4 transition-all hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-1 cursor-default">
+<div class="hidden lg:block absolute -left-[6px] top-1/2 -translate-y-1/2 size-3 bg-border-light border border-white rounded-full z-20 group-hover:bg-primary transition-colors"></div>
+<div class="flex justify-between items-start mb-3">
+<div class="size-10 rounded-lg bg-teal-50 flex items-center justify-center text-teal-500">
+<span class="material-symbols-outlined">attach_money</span>
+</div>
+<span class="size-2.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
+</div>
+<h4 class="text-deep-blue text-sm font-bold mb-1">成本估算器</h4>
+<div class="flex justify-between items-center">
+<span class="text-secondary-text text-xs">活跃</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+</div>
+<div class="group relative bg-white border border-border-light hover:border-primary/50 rounded-lg p-4 transition-all hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-1 cursor-default">
+<div class="hidden lg:block absolute -left-[6px] top-1/2 -translate-y-1/2 size-3 bg-border-light border border-white rounded-full z-20 group-hover:bg-primary transition-colors"></div>
+<div class="flex justify-between items-start mb-3">
+<div class="size-10 rounded-lg bg-pink-50 flex items-center justify-center text-pink-500">
+<span class="material-symbols-outlined">security</span>
+</div>
+<span class="size-2.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
+</div>
+<h4 class="text-deep-blue text-sm font-bold mb-1">安全策略</h4>
+<div class="flex justify-between items-center">
+<span class="text-secondary-text text-xs">扫描中...</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+</div>
+<div class="group relative bg-white border border-border-light hover:border-primary/50 rounded-lg p-4 transition-all hover:shadow-lg hover:shadow-blue-900/5 hover:-translate-y-1 cursor-default">
+<div class="hidden lg:block absolute -left-[6px] top-1/2 -translate-y-1/2 size-3 bg-border-light border border-white rounded-full z-20 group-hover:bg-primary transition-colors"></div>
+<div class="flex justify-between items-start mb-3">
+<div class="size-10 rounded-lg bg-yellow-50 flex items-center justify-center text-yellow-500">
+<span class="material-symbols-outlined">speed</span>
+</div>
+<span class="size-2.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
+</div>
+<h4 class="text-deep-blue text-sm font-bold mb-1">资源占用分析</h4>
+<div class="flex justify-between items-center">
+<span class="text-secondary-text text-xs">监控中</span>
+<button class="text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 flex justify-center items-center gap-4 text-xs text-slate-400 font-mono">
+<span>数据摄入</span>
+<span class="w-12 h-px bg-slate-200 block"></span>
+<span>状态聚合</span>
+<span class="w-12 h-px bg-slate-200 block"></span>
+<span>智能分析</span>
+</div>
+</div>
+</section>
+</main>
+
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const issueType = params.get("issueType");
+  const timeRange = params.get("timeRange");
+  const base =
+    window.location.origin && window.location.origin !== "null"
+      ? window.location.origin
+      : window.location.href;
+
+  const escapeCss =
+    window.CSS && typeof window.CSS.escape === "function"
+      ? window.CSS.escape
+      : (value) => String(value).replace(/"/g, '\\"');
+
+  const auditButton = document.getElementById("btnAuditNow");
+  const exportButton = document.getElementById("btnExportReports");
+  const issuesBody = document.getElementById("resourceIssuesBody");
+  const issueCountCurrent = document.getElementById("issueCountCurrent");
+  const issueCountTotal = document.getElementById("issueCountTotal");
+  const auditLogList = document.getElementById("auditLogList");
+  const auditLogStatus = document.getElementById("auditLogStatus");
+  const healthStatusDot = document.getElementById("healthStatusDot");
+  const healthStatusLabel = document.getElementById("healthStatusLabel");
+
+  const priorityService = document.getElementById("priorityService");
+  const priorityValue = document.getElementById("priorityValue");
+  const priorityStatus = document.getElementById("priorityStatus");
+  const prioritySaveButton = document.getElementById("btnSavePriority");
+  const priorityRefreshButton = document.getElementById("btnRefreshPriorities");
+  const prioritiesTableBody = document.getElementById("prioritiesTableBody");
+
+  const visList = document.getElementById("visList");
+  const visStatus = document.getElementById("visStatus");
+  const visRefreshButton = document.getElementById("btnRefreshVis");
+
+  const setText = (el, text) => {
+    if (el) {
+      el.textContent = text || "";
+    }
+  };
+
+  const setHtml = (el, html) => {
+    if (el) {
+      el.innerHTML = html || "";
+    }
+  };
+
+  const setControlDisabled = (el, disabled) => {
+    if (!el) return;
+    el.disabled = disabled;
+    el.classList.toggle("opacity-70", disabled);
+    el.classList.toggle("cursor-not-allowed", disabled);
+  };
+
+  const escapeHtml = (value) => {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  };
+
+  async function jsonFetch(url, opts) {
+    const response = await fetch(url, opts || {});
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      const detail = text ? `: ${text}` : "";
+      const error = new Error(
+        `${response.status} ${response.statusText}${detail}`
+      );
+      error.status = response.status;
+      throw error;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return await response.json();
+    }
+    return await response.text();
+  }
+
+  const issueLabelMap = {
+    RUN_AS_ROOT: "允许 root 运行",
+    PRIVILEGED_MODE: "特权模式",
+    PRIVILEGE_ESCALATION: "允许权限提升",
+    RW_ROOT_FS: "可写根文件系统",
+    ALL_CAPABILITIES: "启用所有能力",
+    CAPABILITIES_NOT_DROPPED: "未移除能力",
+    MISSING_RESOURCE_LIMITS: "缺少资源限制",
+    MISSING_RESOURCE_REQUESTS: "缺少资源请求",
+    MISSING_LIVENESS_PROBE: "缺少存活探针",
+    MISSING_READINESS_PROBE: "缺少就绪探针",
+  };
+
+  const fixSuggestionMap = {
+    RUN_AS_ROOT: "设置 securityContext.runAsNonRoot: true",
+    PRIVILEGED_MODE: "移除 privileged 权限",
+    PRIVILEGE_ESCALATION: "关闭 allowPrivilegeEscalation",
+    RW_ROOT_FS: "设置 readOnlyRootFilesystem: true",
+    ALL_CAPABILITIES: "删除 ALL capabilities",
+    CAPABILITIES_NOT_DROPPED: "添加 capabilities.drop: [\"ALL\"]",
+    MISSING_RESOURCE_LIMITS: "补充 resources.limits",
+    MISSING_RESOURCE_REQUESTS: "补充 resources.requests",
+    MISSING_LIVENESS_PROBE: "补充 livenessProbe 配置",
+    MISSING_READINESS_PROBE: "补充 readinessProbe 配置",
+  };
+
+  const resourceIconMap = {
+    deployment: "dns",
+    pod: "memory",
+    statefulset: "storage",
+    daemonset: "dns",
+    job: "task_alt",
+    cronjob: "event",
+  };
+
+  function parseReportLine(line) {
+    if (!line) {
+      return null;
+    }
+    const match = String(line).match(
+      /^\[(.*?)\]\s+\[(.*?)\]\s+from\s+([^:]+):\s+(.*)$/
+    );
+    if (!match) {
+      return {
+        ts: "",
+        level: "INFO",
+        source: "Reporter",
+        message: String(line),
+      };
+    }
+    return {
+      ts: match[1],
+      level: match[2].toUpperCase(),
+      source: match[3],
+      message: match[4],
+    };
+  }
+
+  function severityMeta(level) {
+    const normalized = (level || "INFO").toUpperCase();
+    if (normalized === "ERROR") {
+      return {
+        label: "严重",
+        badge: "bg-red-50 border border-red-200 text-red-600",
+        icon: "error",
+        dot: "bg-red-500",
+      };
+    }
+    if (normalized === "WARNING") {
+      return {
+        label: "中等",
+        badge: "bg-amber-50 border border-amber-200 text-amber-600",
+        icon: "warning",
+        dot: "bg-amber-500",
+      };
+    }
+    return {
+      label: "提示",
+      badge: "bg-blue-50 border border-blue-200 text-blue-600",
+      icon: "info",
+      dot: "bg-blue-500",
+    };
+  }
+
+  function parseK8sIssue(report) {
+    if (!report || !report.source) return null;
+    if (!report.source.toLowerCase().includes("k8s")) return null;
+    const match = String(report.message || "").match(/^([^:]+):\s+\[([^\]]+)\]\s+(.*)$/);
+    if (!match) return null;
+    const resource = match[1];
+    const issueType = match[2];
+    const detail = match[3];
+    const parts = resource.split("/");
+    const resourceType = parts[0] || "resource";
+    const namespace = parts[1] || "default";
+    const service = parts[2] || resource;
+    return {
+      resource,
+      resourceType,
+      namespace,
+      service,
+      issueType,
+      label: issueLabelMap[issueType] || issueType,
+      detail,
+      severity: report.level,
+    };
+  }
+
+  function updateHealthStatus(reports) {
+    if (!healthStatusLabel || !healthStatusDot) return;
+    const hasError = reports.some((report) => report.level === "ERROR");
+    const hasWarning = reports.some((report) => report.level === "WARNING");
+    if (hasError) {
+      setText(healthStatusLabel, "存在严重问题");
+      healthStatusLabel.className = "text-sm text-red-600 font-bold";
+      healthStatusDot.className =
+        "block size-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]";
+    } else if (hasWarning) {
+      setText(healthStatusLabel, "存在警告");
+      healthStatusLabel.className = "text-sm text-amber-600 font-bold";
+      healthStatusDot.className =
+        "block size-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]";
+    } else {
+      setText(healthStatusLabel, "系统健康");
+      healthStatusLabel.className = "text-sm text-green-600 font-bold";
+      healthStatusDot.className =
+        "block size-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]";
+    }
+  }
+
+  function highlightService(serviceName, scrollIntoView) {
+    if (!issuesBody) return;
+    issuesBody.querySelectorAll("[data-service]").forEach((row) => {
+      row.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+    });
+    const target = issuesBody.querySelector(
+      `[data-service="${escapeCss(serviceName)}"]`
+    );
+    if (target) {
+      target.classList.add("ring-2", "ring-primary", "ring-offset-2");
+      if (scrollIntoView) {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }
+  }
+
+  function renderIssues(issues) {
+    if (!issuesBody) return;
+    if (!issues.length) {
+      setHtml(
+        issuesBody,
+        '<tr><td class="py-4 px-6 text-sm text-secondary-text" colspan="6">暂无资源问题</td></tr>'
+      );
+      setText(issueCountCurrent, "0");
+      setText(issueCountTotal, "0");
+      return;
+    }
+    const displayIssues = issues.slice(0, issues.length);
+    const total = issues.length;
+    const currentLabel = total ? `1-${displayIssues.length}` : "0";
+    setText(issueCountCurrent, currentLabel);
+    setText(issueCountTotal, String(total));
+    const rows = displayIssues
+      .map((issue) => {
+        const meta = severityMeta(issue.severity);
+        const icon =
+          resourceIconMap[issue.resourceType.toLowerCase()] || "dns";
+        const fix = fixSuggestionMap[issue.issueType] || "检查配置项";
+        const linkParams = new URLSearchParams(params);
+        linkParams.set("service", issue.service);
+        const detailUrl = `/vis/ResourceAuditVisualization?${linkParams.toString()}`;
+        const fixHtml = fix.includes("kubectl")
+          ? `<code class="text-xs bg-slate-100 border border-border-light px-2 py-1 rounded text-primary font-mono">${escapeHtml(
+              fix
+            )}</code>`
+          : `<span class="text-sm text-secondary-text">${escapeHtml(
+              fix
+            )}</span>`;
+        return `
+          <tr class="group hover:bg-slate-50 transition-colors cursor-pointer" data-service="${escapeHtml(
+            issue.service
+          )}" data-resource="${escapeHtml(issue.resource)}">
+            <td class="py-4 px-6">
+              <div class="flex items-center gap-3">
+                <div class="size-8 rounded bg-primary/10 flex items-center justify-center text-primary">
+                  <span class="material-symbols-outlined text-[18px]">${icon}</span>
+                </div>
+                <div>
+                  <p class="text-deep-blue text-sm font-bold">${escapeHtml(
+                    issue.service
+                  )}</p>
+                  <p class="text-secondary-text text-xs">ID: ${escapeHtml(
+                    issue.resource
+                  )}</p>
+                </div>
+              </div>
+            </td>
+            <td class="py-4 px-6 text-sm text-slate-700">${escapeHtml(
+              issue.label
+            )}</td>
+            <td class="py-4 px-6">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${meta.badge}">
+                <span class="material-symbols-outlined text-[14px]">${meta.icon}</span>
+                ${meta.label}
+              </span>
+            </td>
+            <td class="py-4 px-6 text-sm text-secondary-text font-mono">${escapeHtml(
+              issue.namespace
+            )}</td>
+            <td class="py-4 px-6">${fixHtml}</td>
+            <td class="py-4 px-6 text-right">
+              <a class="text-slate-400 hover:text-deep-blue p-1 rounded hover:bg-slate-100 transition-colors" href="${detailUrl}">
+                <span class="material-symbols-outlined text-[20px]">more_vert</span>
+              </a>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+    setHtml(issuesBody, rows);
+    issuesBody.querySelectorAll("tr[data-service]").forEach((row) => {
+      row.addEventListener("click", () => {
+        const serviceName = row.getAttribute("data-service");
+        if (serviceName) {
+          setParam("service", serviceName);
+          highlightService(serviceName, false);
+        }
+      });
+    });
+    const currentService = params.get("service");
+    if (currentService) {
+      highlightService(currentService, true);
+    }
+  }
+
+  function renderAuditLog(reports) {
+    if (!auditLogList) return;
+    if (!reports.length) {
+      setHtml(
+        auditLogList,
+        '<div class="text-sm text-secondary-text">暂无审计记录</div>'
+      );
+      setText(auditLogStatus, "0 条记录");
+      return;
+    }
+    const items = reports.slice().reverse().slice(0, 6);
+    setText(auditLogStatus, `最近 ${items.length} 条`);
+    const html = items
+      .map((report) => {
+        const meta = severityMeta(report.level);
+        return `
+          <div class="flex items-start gap-3">
+            <span class="mt-1 size-2.5 rounded-full ${meta.dot}"></span>
+            <div class="flex-1">
+              <div class="text-xs text-secondary-text font-mono">${escapeHtml(
+                report.ts || "刚刚"
+              )}</div>
+              <div class="text-sm font-bold text-deep-blue">${escapeHtml(
+                report.source
+              )}</div>
+              <div class="text-xs text-secondary-text mt-1">${escapeHtml(
+                report.message
+              )}</div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+    setHtml(auditLogList, html);
+  }
+
+  const setParam = (key, value) => {
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    const query = params.toString();
+    const nextUrl = query
+      ? `${window.location.pathname}?${query}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", nextUrl);
+    preserveQueryLinks();
+  };
+
+  const preserveQueryLinks = () => {
+    document.querySelectorAll("[data-preserve-query]").forEach((link) => {
+      const href = link.getAttribute("href");
+      if (!href) return;
+      const url = new URL(href, base);
+      params.forEach((value, key) => {
+        if (!url.searchParams.has(key)) {
+          url.searchParams.set(key, value);
+        }
+      });
+      link.setAttribute("href", url.pathname + url.search);
+    });
+  };
+
+  const updateHeading = () => {
+    if (issueType || timeRange) {
+      const heading = document.querySelector("[data-audit-heading]");
+      if (heading) {
+        const suffix = [issueType, timeRange].filter(Boolean).join(" · ");
+        if (suffix) {
+          heading.textContent = `${heading.textContent} (${suffix})`;
+        }
+      }
+    }
+  };
+
+  async function refreshReports() {
+    try {
+      const data = await jsonFetch("/api/reports");
+      const list = Array.isArray(data) ? data : [];
+      const parsed = list
+        .map((line) => parseReportLine(line))
+        .filter(Boolean);
+      updateHealthStatus(parsed);
+      renderAuditLog(parsed);
+      const k8sIssues = parsed
+        .map((report) => parseK8sIssue(report))
+        .filter(Boolean);
+      renderIssues(k8sIssues);
+    } catch (error) {
+      setText(
+        auditLogStatus,
+        error && error.message ? `日志加载失败: ${error.message}` : "日志加载失败"
+      );
+      setHtml(
+        auditLogList,
+        '<div class="text-sm text-secondary-text">无法加载审计日志</div>'
+      );
+      setHtml(
+        issuesBody,
+        '<tr><td class="py-4 px-6 text-sm text-secondary-text" colspan="6">无法加载资源问题</td></tr>'
+      );
+    }
+  }
+
+  let priorityEnabled = true;
+
+  async function refreshPriorities() {
+    if (!prioritiesTableBody) return;
+    try {
+      const data = await jsonFetch("/api/priorities");
+      const entries = Object.entries(data || {}).sort((a, b) => {
+        const diff = Number(a[1]) - Number(b[1]);
+        return diff !== 0 ? diff : a[0].localeCompare(b[0]);
+      });
+      priorityEnabled = true;
+      setControlDisabled(priorityService, false);
+      setControlDisabled(priorityValue, false);
+      setControlDisabled(prioritySaveButton, false);
+      setText(priorityStatus, `已加载 ${entries.length} 项`);
+      if (!entries.length) {
+        setHtml(
+          prioritiesTableBody,
+          '<tr><td class="py-3 px-4 text-secondary-text" colspan="2">暂无优先级配置</td></tr>'
+        );
+        return;
+      }
+      setHtml(
+        prioritiesTableBody,
+        entries
+          .map(
+            ([service, priority]) => `
+              <tr>
+                <td class="py-3 px-4">${escapeHtml(service)}</td>
+                <td class="py-3 px-4 font-mono">${escapeHtml(priority)}</td>
+              </tr>
+            `
+          )
+          .join("")
+      );
+    } catch (error) {
+      priorityEnabled = false;
+      const message =
+        error && error.status === 404
+          ? "ServicePrioritySource 未启用"
+          : `优先级读取失败: ${error.message || "未知错误"}`;
+      setText(priorityStatus, message);
+      setHtml(
+        prioritiesTableBody,
+        `<tr><td class="py-3 px-4 text-secondary-text" colspan="2">${escapeHtml(
+          message
+        )}</td></tr>`
+      );
+      setControlDisabled(priorityService, true);
+      setControlDisabled(priorityValue, true);
+      setControlDisabled(prioritySaveButton, true);
+    }
+  }
+
+  async function savePriority() {
+    if (!priorityEnabled) {
+      setText(priorityStatus, "ServicePrioritySource 未启用");
+      return;
+    }
+    if (!priorityService || !priorityValue) return;
+    const service = priorityService.value.trim();
+    const value = priorityValue.value.trim();
+    if (!service || value === "") {
+      setText(priorityStatus, "请输入服务名和优先级");
+      return;
+    }
+    setText(priorityStatus, "保存中...");
+    try {
+      await jsonFetch(
+        `/api/priorities/${encodeURIComponent(service)}/${encodeURIComponent(
+          value
+        )}`,
+        { method: "POST" }
+      );
+      setText(priorityStatus, "已保存");
+      priorityService.value = "";
+      priorityValue.value = "";
+      await refreshPriorities();
+    } catch (error) {
+      setText(
+        priorityStatus,
+        error && error.message ? `保存失败: ${error.message}` : "保存失败"
+      );
+    }
+  }
+
+  async function lookupPriority() {
+    if (!priorityService || !priorityEnabled) return;
+    const service = priorityService.value.trim();
+    if (!service) return;
+    try {
+      const value = await jsonFetch(
+        `/api/priorities/${encodeURIComponent(service)}`
+      );
+      if (value === null || typeof value === "undefined") {
+        setText(priorityStatus, "未找到该服务优先级");
+        return;
+      }
+      if (priorityValue && priorityValue.value === "") {
+        priorityValue.value = value;
+      }
+      setText(priorityStatus, `当前优先级: ${value}`);
+    } catch (error) {
+      setText(
+        priorityStatus,
+        error && error.message ? `查询失败: ${error.message}` : "查询失败"
+      );
+    }
+  }
+
+  async function refreshVis() {
+    if (!visList) return;
+    try {
+      const data = await jsonFetch("/vis/");
+      const items = Array.isArray(data) ? data : [];
+      if (!items.length) {
+        setHtml(
+          visList,
+          '<li class="text-secondary-text">暂无可视化入口</li>'
+        );
+        setText(visStatus, "");
+        return;
+      }
+      setText(visStatus, `共 ${items.length} 个入口`);
+      setHtml(
+        visList,
+        items
+          .map((name) => {
+            const url = `/vis/${encodeURIComponent(name)}`;
+            return `
+              <li>
+                <a class="flex items-center justify-between rounded-lg border border-border-light bg-slate-50/50 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="${url}">
+                  <span>${escapeHtml(name)}</span>
+                  <span class="material-symbols-outlined text-base text-secondary-text">open_in_new</span>
+                </a>
+              </li>
+            `;
+          })
+          .join("")
+      );
+    } catch (error) {
+      setText(
+        visStatus,
+        error && error.message ? `入口加载失败: ${error.message}` : "入口加载失败"
+      );
+      setHtml(visList, '<li class="text-secondary-text">暂无可用入口</li>');
+    }
+  }
+
+  async function exportReports() {
+    try {
+      const data = await jsonFetch("/api/reports");
+      const list = Array.isArray(data) ? data : [String(data || "")];
+      const content = list.join("\n");
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `archauditor-reports-${new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")}.log`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setText(
+        auditLogStatus,
+        error && error.message ? `导出失败: ${error.message}` : "导出失败"
+      );
+    }
+  }
+
+  async function refreshAll() {
+    await Promise.allSettled([
+      refreshReports(),
+      refreshPriorities(),
+      refreshVis(),
+    ]);
+  }
+
+  if (window.location.protocol === "file:") {
+    setText(auditLogStatus, "请通过服务访问 /vis/ResourceAuditVisualization");
+    setControlDisabled(auditButton, true);
+    setControlDisabled(exportButton, true);
+    setControlDisabled(priorityService, true);
+    setControlDisabled(priorityValue, true);
+    setControlDisabled(prioritySaveButton, true);
+    setControlDisabled(priorityRefreshButton, true);
+    setControlDisabled(visRefreshButton, true);
+    return;
+  }
+
+  if (auditButton) {
+    auditButton.addEventListener("click", async () => {
+      const original = auditButton.innerHTML;
+      auditButton.disabled = true;
+      auditButton.classList.add("opacity-70", "cursor-not-allowed");
+      auditButton.innerHTML =
+        '<span class="material-symbols-outlined text-[20px] animate-spin">refresh</span><span>审计中...</span>';
+      try {
+        await jsonFetch("/api/audit", { method: "POST" });
+      } catch (error) {
+        auditButton.innerHTML =
+          '<span class="material-symbols-outlined text-[20px]">error</span><span>审计失败</span>';
+        console.error(error);
+      } finally {
+        refreshAll().catch(() => {});
+        setTimeout(() => {
+          auditButton.disabled = false;
+          auditButton.classList.remove("opacity-70", "cursor-not-allowed");
+          auditButton.innerHTML = original;
+        }, 800);
+      }
+    });
+  }
+
+  if (exportButton) {
+    exportButton.addEventListener("click", () => {
+      exportReports();
+    });
+  }
+
+  if (prioritySaveButton) {
+    prioritySaveButton.addEventListener("click", () => {
+      savePriority();
+    });
+  }
+
+  if (priorityRefreshButton) {
+    priorityRefreshButton.addEventListener("click", () => {
+      refreshPriorities();
+    });
+  }
+
+  if (priorityService) {
+    priorityService.addEventListener("change", () => {
+      lookupPriority();
+    });
+  }
+
+  if (visRefreshButton) {
+    visRefreshButton.addEventListener("click", () => {
+      refreshVis();
+    });
+  }
+
+  updateHeading();
+  preserveQueryLinks();
+  refreshAll().catch(() => {});
+})();
+</script>
+</body></html>

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ArchAuditor - 服务拓扑</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2563eb", // blue-600 for better visibility on white
+                        "primary-subtle": "#eff6ff", // blue-50
+                        "background": "#f8fafc", // slate-50
+                        "surface": "#ffffff", // white
+                        "border": "#e2e8f0", // slate-200
+                        "text-main": "#0f172a", // slate-900
+                        "text-secondary": "#64748b", // slate-500
+                        "danger": "#ef4444",
+                        "success": "#16a34a",
+                        "warning": "#d97706"
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    boxShadow: {
+                        "soft": "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
+                        "card": "0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)",
+                        "glow": "0 0 15px rgba(37, 99, 235, 0.15)"
+                    }
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }.bg-grid-pattern {
+            background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+                              linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-background text-text-main font-display overflow-hidden h-screen flex flex-col">
+<header class="flex-none flex items-center justify-between whitespace-nowrap border-b border-solid border-border px-6 py-3 bg-surface z-20 shadow-sm">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="size-8 flex items-center justify-center bg-primary rounded-lg text-white shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined" style="font-size: 20px;">hub</span>
+</div>
+<h2 class="text-text-main text-lg font-bold leading-tight tracking-[-0.015em]">ArchAuditor</h2>
+</div>
+<label class="flex flex-col min-w-40 !h-10 max-w-64 hidden md:flex">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full bg-slate-100 border border-transparent focus-within:bg-white focus-within:border-primary/50 transition-all">
+<div class="text-text-secondary flex items-center justify-center pl-3">
+<span class="material-symbols-outlined" style="font-size: 20px;">search</span>
+</div>
+<input class="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-main focus:outline-0 focus:ring-0 border-none bg-transparent h-full placeholder:text-text-secondary px-3 text-sm font-normal leading-normal" placeholder="搜索服务..."/>
+</div>
+</label>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<nav class="hidden lg:flex items-center gap-6">
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/vis/ControlCenterVisualization" data-preserve-query="true">仪表盘</a>
+<a class="text-primary text-sm font-bold leading-normal relative after:content-[''] after:absolute after:-bottom-[22px] after:left-0 after:right-0 after:h-[3px] after:bg-primary after:rounded-t-full" href="/vis/ServiceAnalysisVisualization" data-preserve-query="true">拓扑图</a>
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/vis/ResourceAuditVisualization" data-preserve-query="true">告警</a>
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">设置</a>
+</nav>
+<div class="flex gap-2 items-center border-l border-border pl-6">
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-slate-100 text-text-secondary hover:text-text-main transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">notifications</span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-slate-100 text-text-secondary hover:text-text-main transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">help</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-9 ml-2 border border-border ring-2 ring-white shadow-sm" data-alt="User Avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCNy82E9VMXAaOCX9WoSYIEFIB1E6kzeoUsCA1VT5Lde_Z6VT_KvSJ1mhu5yWmI8wL75zrpFg9aPUXmF4BemzI_kBRlCH6c14JTiWG7pU7nQIL3NcUP0fSwwbwquurkvPyY1p-Edh10qrJrep721oBrIXQQfioQMlPtRzAZB4AJd4aMzpreH-q5mF5KSL25scR6Bz-gVvtkhJjvrabkHTuFv_TMWHOOer99haQ2wCWdDmiQzjg09-i-ry-9J5y8yCo7GMC3ziHFW4zG");'></div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<main class="flex-1 flex flex-col relative min-w-0">
+<div class="absolute top-0 left-0 right-0 z-10 p-6 pointer-events-none flex flex-col gap-4">
+<div class="flex justify-between items-start pointer-events-auto">
+<div>
+<div class="flex items-center gap-2 text-xs text-text-secondary mb-2">
+<a class="hover:text-primary transition-colors" href="/vis/ControlCenterVisualization" data-preserve-query="true">控制中心</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-text-main font-medium">服务拓扑</span>
+<a class="ml-4 text-text-secondary hover:text-primary transition-colors" href="/vis/ControlCenterVisualization" data-preserve-query="true">返回控制中心</a>
+</div>
+<h1 class="text-text-main text-2xl font-extrabold leading-tight mb-1">服务拓扑与风险分析</h1>
+<p class="text-text-secondary text-sm font-normal">可视化微服务依赖关系与架构风险</p>
+</div>
+<div class="flex items-center gap-2">
+<button id="btnTriggerAudit" class="flex items-center gap-2 h-9 px-4 bg-primary text-white hover:bg-blue-600 transition-all shadow-sm rounded-lg text-sm font-bold">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+<span>立即审计</span>
+</button>
+<button class="flex items-center gap-2 h-9 px-4 bg-surface border border-border hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm rounded-lg text-text-main text-sm font-medium">
+<span class="material-symbols-outlined text-text-secondary" style="font-size: 18px;">calendar_today</span>
+<span data-time-range-label>最近24小时</span>
+<span class="material-symbols-outlined text-text-secondary" style="font-size: 18px;">expand_more</span>
+</button>
+</div>
+</div>
+<div class="self-center mt-2 pointer-events-auto shadow-card rounded-xl bg-surface border border-border p-1.5 inline-flex">
+<label class="cursor-pointer px-4 py-2 rounded-lg transition-all hover:bg-slate-50 has-[:checked]:bg-primary has-[:checked]:text-white has-[:checked]:shadow-md text-text-secondary text-sm font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+<span>循环依赖</span>
+<input class="hidden" name="analysis_layer" type="radio" value="Circular"/>
+</label>
+<label class="cursor-pointer px-4 py-2 rounded-lg transition-all hover:bg-slate-50 has-[:checked]:bg-primary has-[:checked]:text-white has-[:checked]:shadow-md text-text-secondary text-sm font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">layers</span>
+<span>服务等级</span>
+<input checked="" class="hidden" name="analysis_layer" type="radio" value="Hierarchy"/>
+</label>
+<label class="cursor-pointer px-4 py-2 rounded-lg transition-all hover:bg-slate-50 has-[:checked]:bg-primary has-[:checked]:text-white has-[:checked]:shadow-md text-text-secondary text-sm font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">account_tree</span>
+<span>支配树</span>
+<input class="hidden" name="analysis_layer" type="radio" value="Dominator"/>
+</label>
+</div>
+</div>
+<div class="w-full h-full bg-background bg-grid-pattern relative overflow-hidden group cursor-grab active:cursor-grabbing">
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-80">
+<defs>
+<marker id="arrowhead" markerHeight="7" markerWidth="10" orient="auto" refX="9" refY="3.5">
+<polygon fill="#94a3b8" points="0 0, 10 3.5, 0 7"></polygon>
+</marker>
+<marker id="arrowhead-active" markerHeight="7" markerWidth="10" orient="auto" refX="9" refY="3.5">
+<polygon fill="#2563eb" points="0 0, 10 3.5, 0 7"></polygon>
+</marker>
+</defs>
+<path d="M 300 180 C 450 180, 450 350, 600 350" fill="none" marker-end="url(#arrowhead)" stroke="#94a3b8" stroke-width="2"></path>
+<path d="M 600 350 C 750 350, 750 200, 900 200" fill="none" marker-end="url(#arrowhead)" stroke="#94a3b8" stroke-width="2"></path>
+<path d="M 600 350 C 650 450, 750 550, 850 550" fill="none" marker-end="url(#arrowhead)" stroke="#94a3b8" stroke-width="2"></path>
+<path d="M 350 500 C 450 500, 500 400, 600 350" fill="none" marker-end="url(#arrowhead-active)" stroke="#2563eb" stroke-dasharray="5,5" stroke-width="2"></path>
+</svg>
+<div class="absolute top-[150px] left-[200px] flex flex-col items-center gap-2 transform hover:scale-105 transition-transform z-10 cursor-pointer" data-service="api-gateway">
+<div class="bg-surface border border-border p-3 rounded-xl shadow-soft flex items-center justify-center size-14">
+<span class="material-symbols-outlined text-text-main">dns</span>
+</div>
+<span class="text-xs font-bold text-text-secondary bg-surface/90 shadow-sm border border-border/50 px-2 py-0.5 rounded-full">API 网关</span>
+</div>
+<div class="absolute top-[320px] left-[570px] flex flex-col items-center gap-2 transform scale-110 z-20 cursor-pointer" data-service="payment-service-v2">
+<div class="relative">
+<div class="absolute -inset-2 bg-primary/10 rounded-full animate-pulse"></div>
+<div class="absolute -inset-1 bg-primary/20 rounded-full"></div>
+<div class="bg-surface border-2 border-primary p-4 rounded-xl shadow-glow flex items-center justify-center size-16 relative z-10">
+<span class="material-symbols-outlined text-primary text-[28px]">shopping_cart</span>
+</div>
+<div class="absolute -top-2 -right-2 bg-danger text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">P0</div>
+</div>
+<div class="flex flex-col items-center">
+<span class="text-sm font-bold text-white bg-text-main shadow-lg px-3 py-1 rounded-full">结算服务</span>
+<span class="text-[10px] text-danger font-bold mt-1 bg-white/50 px-1 rounded">异常率: 0.05%</span>
+</div>
+</div>
+<div class="absolute top-[470px] left-[300px] flex flex-col items-center gap-2 transform hover:scale-105 transition-transform z-10 cursor-pointer" data-service="auth-service">
+<div class="bg-surface border border-border p-3 rounded-xl shadow-soft flex items-center justify-center size-14">
+<span class="material-symbols-outlined text-text-secondary">lock</span>
+</div>
+<span class="text-xs font-bold text-text-secondary bg-surface/90 shadow-sm border border-border/50 px-2 py-0.5 rounded-full">认证服务</span>
+</div>
+<div class="absolute top-[170px] left-[870px] flex flex-col items-center gap-2 transform hover:scale-105 transition-transform z-10 cursor-pointer" data-service="inventory-service">
+<div class="bg-surface border border-border p-3 rounded-xl shadow-soft flex items-center justify-center size-14">
+<span class="material-symbols-outlined text-success">inventory_2</span>
+</div>
+<span class="text-xs font-bold text-text-secondary bg-surface/90 shadow-sm border border-border/50 px-2 py-0.5 rounded-full">库存服务</span>
+</div>
+<div class="absolute top-[520px] left-[820px] flex flex-col items-center gap-2 transform hover:scale-105 transition-transform z-10 cursor-pointer" data-service="payment-gateway">
+<div class="bg-surface border border-danger/30 p-3 rounded-xl shadow-soft flex items-center justify-center size-14 relative">
+<span class="material-symbols-outlined text-danger">credit_card</span>
+<div class="absolute -top-1 -right-1 size-3 bg-danger rounded-full border-2 border-white"></div>
+</div>
+<span class="text-xs font-bold text-danger bg-surface/90 shadow-sm border border-danger/20 px-2 py-0.5 rounded-full">支付网关</span>
+</div>
+<div class="absolute bottom-6 left-6 flex flex-col gap-2 z-20">
+<button class="size-9 bg-surface border border-border rounded-lg flex items-center justify-center text-text-secondary hover:text-primary hover:border-primary/50 shadow-sm transition-all">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-9 bg-surface border border-border rounded-lg flex items-center justify-center text-text-secondary hover:text-primary hover:border-primary/50 shadow-sm transition-all">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<button class="size-9 bg-surface border border-border rounded-lg flex items-center justify-center text-text-secondary hover:text-primary hover:border-primary/50 shadow-sm transition-all mt-2">
+<span class="material-symbols-outlined text-[20px]">center_focus_strong</span>
+</button>
+</div>
+<div class="absolute bottom-6 right-6 bg-surface/90 backdrop-blur border border-border rounded-xl p-4 z-20 shadow-card">
+<h4 class="text-[10px] uppercase font-bold text-text-secondary mb-3 tracking-wider">节点状态</h4>
+<div class="flex flex-col gap-2.5">
+<div class="flex items-center gap-2.5">
+<div class="size-2.5 rounded-full bg-success shadow-sm"></div>
+<span class="text-xs font-medium text-text-main">健康</span>
+</div>
+<div class="flex items-center gap-2.5">
+<div class="size-2.5 rounded-full bg-warning shadow-sm"></div>
+<span class="text-xs font-medium text-text-main">警告</span>
+</div>
+<div class="flex items-center gap-2.5">
+<div class="size-2.5 rounded-full bg-danger shadow-sm"></div>
+<span class="text-xs font-medium text-text-main">严重</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<aside class="w-96 bg-surface border-l border-border flex flex-col z-20 shadow-card overflow-y-auto">
+<div class="p-6 border-b border-border bg-slate-50/50">
+<div class="flex items-start justify-between mb-4">
+<div class="size-14 rounded-xl bg-white border border-border shadow-sm flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[32px]">shopping_cart</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-danger/10 text-danger border border-danger/20 text-xs font-bold uppercase tracking-wide">
+<span class="size-1.5 rounded-full bg-danger animate-pulse"></span>
+                            严重 P0
+                        </span>
+</div>
+</div>
+<h3 class="text-text-main text-xl font-bold mb-1" data-service-title>结算服务-v4</h3>
+<div class="flex items-center gap-2 text-text-secondary text-sm">
+<span class="material-symbols-outlined text-[16px]">domain</span>
+<span data-service-region>us-east-1a</span>
+<span class="mx-1 text-border">•</span>
+<span class="text-success font-medium flex items-center gap-1" data-service-health>
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                        健康 (99.9%)
+                    </span>
+</div>
+</div>
+<div class="p-6 flex flex-col gap-6 border-b border-border">
+<div>
+<div class="flex justify-between items-end mb-2">
+<label class="text-xs font-bold text-text-secondary uppercase tracking-wider">错误率趋势</label>
+<span class="text-danger font-mono font-bold text-lg">0.05% <span class="text-[10px] text-text-secondary font-sans font-medium ml-1">对比均值 0.01%</span></span>
+</div>
+<div class="h-20 w-full bg-slate-50 rounded-xl p-0 border border-border relative overflow-hidden">
+<svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 40">
+<path d="M0 35 L10 34 L20 36 L30 35 L40 35 L50 20 L60 5 L70 15 L80 25 L90 30 L100 32" fill="none" stroke="#ef4444" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<path d="M0 35 L10 34 L20 36 L30 35 L40 35 L50 20 L60 5 L70 15 L80 25 L90 30 L100 32 L100 40 L0 40 Z" fill="url(#sparkGradient)" opacity="0.1"></path>
+<defs>
+<linearGradient id="sparkGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#ef4444"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</linearGradient>
+</defs>
+</svg>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-background p-4 rounded-xl border border-border">
+<div class="text-text-secondary text-xs font-medium mb-1">吞吐量 (QPS)</div>
+<div class="text-text-main text-2xl font-bold font-display">4,521</div>
+<div class="text-success text-[11px] font-bold flex items-center mt-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span class="ml-0.5">+12%</span>
+</div>
+</div>
+<div class="bg-background p-4 rounded-xl border border-border">
+<div class="text-text-secondary text-xs font-medium mb-1">延迟 (P99)</div>
+<div class="text-text-main text-2xl font-bold font-display">245<span class="text-sm font-normal text-text-secondary ml-1">ms</span></div>
+<div class="text-warning text-[11px] font-bold flex items-center mt-1">
+<span class="material-symbols-outlined text-[14px]">trending_flat</span>
+<span class="ml-0.5">稳定</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-6 border-b border-border flex flex-col gap-5">
+  <div>
+    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">优先级设置</label>
+    <div class="relative">
+      <select id="prioritySelect" class="w-full bg-white text-text-main border border-border rounded-lg px-4 py-2.5 appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer hover:border-primary/50 transition-colors shadow-sm">
+        <option value="0">P0 - 严重 (Critical)</option>
+        <option value="1">P1 - 高 (High)</option>
+        <option value="2">P2 - 标准 (Standard)</option>
+        <option value="3">P3 - 低 (Low)</option>
+      </select>
+      <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none">expand_more</span>
+    </div>
+    <p class="text-xs text-text-secondary mt-2 flex items-start gap-1">
+      <span class="material-symbols-outlined text-[14px] mt-0.5">info</span>
+      更改优先级将立即更新告警阈值。
+    </p>
+    <div id="prioritySummary" class="mt-3 text-xs text-text-secondary">正在加载优先级...</div>
+  </div>
+<div>
+<label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">依赖关系</label>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between p-2.5 rounded-lg border border-transparent hover:bg-slate-50 hover:border-border transition-all group cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-text-secondary text-[18px]">arrow_downward</span>
+<span class="text-sm font-medium text-text-main">支付网关 (Payment-Gateway)</span>
+</div>
+<span class="text-[10px] font-bold bg-danger/10 text-danger px-2 py-1 rounded-full">高风险</span>
+</div>
+<div class="flex items-center justify-between p-2.5 rounded-lg border border-transparent hover:bg-slate-50 hover:border-border transition-all group cursor-pointer">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-text-secondary text-[18px]">arrow_upward</span>
+<span class="text-sm font-medium text-text-main">API 网关 (API Gateway)</span>
+</div>
+<span class="text-[10px] font-bold bg-success/10 text-success px-2 py-1 rounded-full">稳定</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-6 border-b border-border flex flex-col gap-4">
+  <div class="flex items-center justify-between">
+    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider">审计日志</label>
+    <button id="btnRefreshReports" class="text-xs font-bold text-primary hover:text-blue-600">刷新</button>
+  </div>
+  <div id="reportStatus" class="text-xs text-text-secondary"></div>
+  <div id="reportList" class="space-y-3 text-sm text-text-secondary">正在加载审计日志...</div>
+</div>
+<div class="p-6 mt-auto bg-slate-50/30">
+<label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">元数据</label>
+<div class="space-y-3">
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">负责人团队</span>
+<span class="text-text-main font-medium" data-service-team>Checkout Squad</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">开发语言</span>
+<div class="flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-blue-500"></div>
+<span class="text-text-main font-medium" data-service-language>Go 1.21</span>
+</div>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">上次部署</span>
+<span class="text-text-main font-medium" data-service-deploy>2 小时前</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">版本</span>
+<span class="text-text-main font-medium font-mono" data-service-version>v4.2.1-rc3</span>
+</div>
+</div>
+<div class="mt-4">
+  <div class="flex items-center justify-between">
+    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider">可视化入口</label>
+    <button id="btnRefreshVis" class="text-xs font-bold text-primary hover:text-blue-600">刷新</button>
+  </div>
+  <div id="visStatus" class="text-xs text-text-secondary mt-2"></div>
+  <ul id="visList" class="mt-2 space-y-2 text-sm text-text-secondary">
+    <li>正在加载可视化入口...</li>
+  </ul>
+</div>
+<a class="w-full mt-6 bg-white hover:bg-slate-50 text-text-main font-bold py-2.5 px-4 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 border border-border" data-resource-link href="/vis/ResourceAuditVisualization?service=payment-service-v2">
+<span class="material-symbols-outlined text-[18px]">analytics</span>
+                    查看资源审计
+                 </a>
+<button class="w-full mt-4 bg-primary hover:bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                    编辑服务配置
+                 </button>
+</div>
+</aside>
+</div>
+
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const base =
+    window.location.origin && window.location.origin !== "null"
+      ? window.location.origin
+      : window.location.href;
+
+  const escapeCss =
+    window.CSS && typeof window.CSS.escape === "function"
+      ? window.CSS.escape
+      : (value) => String(value).replace(/"/g, '\\"');
+
+  const issueMap = {
+    circular: "Circular",
+    hierarchy: "Hierarchy",
+    sla: "Hierarchy",
+    dominator: "Dominator",
+  };
+  const reverseIssueMap = {
+    Circular: "circular",
+    Hierarchy: "hierarchy",
+    Dominator: "dominator",
+  };
+
+  const serviceDetails = {
+    "payment-service-v2": {
+      title: "结算服务-v4",
+      region: "us-east-1a",
+      health: "健康 (99.9%)",
+      team: "Checkout Squad",
+      language: "Go 1.21",
+      deploy: "2 小时前",
+      version: "v4.2.1-rc3",
+    },
+    "api-gateway": {
+      title: "API 网关",
+      region: "us-east-1a",
+      health: "稳定 (99.7%)",
+      team: "Platform Team",
+      language: "Java 17",
+      deploy: "30 分钟前",
+      version: "v2.6.0",
+    },
+    "auth-service": {
+      title: "认证服务",
+      region: "us-east-1a",
+      health: "稳定 (99.8%)",
+      team: "Security Team",
+      language: "Go 1.20",
+      deploy: "1 小时前",
+      version: "v3.9.2",
+    },
+    "inventory-service": {
+      title: "库存服务",
+      region: "us-east-1a",
+      health: "稳定 (99.6%)",
+      team: "Supply Team",
+      language: "Python 3.11",
+      deploy: "3 小时前",
+      version: "v1.8.4",
+    },
+    "payment-gateway": {
+      title: "支付网关",
+      region: "us-east-1a",
+      health: "告警 (98.9%)",
+      team: "Payments Team",
+      language: "Node 18",
+      deploy: "20 分钟前",
+      version: "v5.1.0",
+    },
+  };
+
+  const auditButton = document.getElementById("btnTriggerAudit");
+  const reportList = document.getElementById("reportList");
+  const reportStatus = document.getElementById("reportStatus");
+  const reportRefreshButton = document.getElementById("btnRefreshReports");
+  const prioritySelect = document.getElementById("prioritySelect");
+  const prioritySummary = document.getElementById("prioritySummary");
+  const visList = document.getElementById("visList");
+  const visStatus = document.getElementById("visStatus");
+  const visRefreshButton = document.getElementById("btnRefreshVis");
+
+  const setText = (el, text) => {
+    if (el) {
+      el.textContent = text || "";
+    }
+  };
+
+  const setHtml = (el, html) => {
+    if (el) {
+      el.innerHTML = html || "";
+    }
+  };
+
+  const setControlDisabled = (el, disabled) => {
+    if (!el) return;
+    el.disabled = disabled;
+    el.classList.toggle("opacity-70", disabled);
+    el.classList.toggle("cursor-not-allowed", disabled);
+  };
+
+  const escapeHtml = (value) => {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  };
+
+  async function jsonFetch(url, opts) {
+    const response = await fetch(url, opts || {});
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      const detail = text ? `: ${text}` : "";
+      const error = new Error(
+        `${response.status} ${response.statusText}${detail}`
+      );
+      error.status = response.status;
+      throw error;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return await response.json();
+    }
+    return await response.text();
+  }
+
+  function parseReportLine(line) {
+    if (!line) {
+      return null;
+    }
+    const match = String(line).match(
+      /^\[(.*?)\]\s+\[(.*?)\]\s+from\s+([^:]+):\s+(.*)$/
+    );
+    if (!match) {
+      return {
+        ts: "",
+        level: "INFO",
+        source: "Reporter",
+        message: String(line),
+      };
+    }
+    return {
+      ts: match[1],
+      level: match[2].toUpperCase(),
+      source: match[3],
+      message: match[4],
+    };
+  }
+
+  function severityMeta(level) {
+    const normalized = (level || "INFO").toUpperCase();
+    if (normalized === "ERROR") {
+      return { label: "严重", dot: "bg-danger", text: "text-danger" };
+    }
+    if (normalized === "WARNING") {
+      return { label: "警告", dot: "bg-warning", text: "text-warning" };
+    }
+    return { label: "提示", dot: "bg-success", text: "text-success" };
+  }
+
+  function renderReportList(reports) {
+    if (!reportList) return;
+    if (!reports.length) {
+      setHtml(reportList, '<div class="text-sm text-text-secondary">暂无审计记录</div>');
+      setText(reportStatus, "0 条记录");
+      return;
+    }
+    const items = reports.slice().reverse().slice(0, 6);
+    setText(reportStatus, `最近 ${items.length} 条`);
+    const html = items
+      .map((report) => {
+        const meta = severityMeta(report.level);
+        const msg = report.message || "";
+        const display = msg.length > 90 ? `${msg.slice(0, 90)}...` : msg;
+        return `
+          <div class="flex items-start gap-3">
+            <span class="mt-1 size-2.5 rounded-full ${meta.dot}"></span>
+            <div class="flex-1">
+              <div class="text-xs text-text-secondary font-mono">${escapeHtml(
+                report.ts || "刚刚"
+              )}</div>
+              <div class="text-sm font-bold ${meta.text}">${escapeHtml(
+                report.source
+              )}</div>
+              <div class="text-xs text-text-secondary mt-1">${escapeHtml(
+                display
+              )}</div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+    setHtml(reportList, html);
+  }
+
+  async function refreshReports() {
+    try {
+      const data = await jsonFetch("/api/reports");
+      const list = Array.isArray(data) ? data : [];
+      const parsed = list.map((line) => parseReportLine(line)).filter(Boolean);
+      renderReportList(parsed);
+    } catch (error) {
+      setText(
+        reportStatus,
+        error && error.message ? `日志加载失败: ${error.message}` : "日志加载失败"
+      );
+      setHtml(reportList, '<div class="text-sm text-text-secondary">无法加载审计日志</div>');
+    }
+  }
+
+  let currentService = null;
+  let priorityEnabled = true;
+
+  const priorityLabel = (value) => {
+    if (value === null || typeof value === "undefined") {
+      return "未配置";
+    }
+    return `P${value}`;
+  };
+
+  async function refreshPrioritySummary() {
+    if (!prioritySummary) return;
+    try {
+      const data = await jsonFetch("/api/priorities");
+      const entries = Object.entries(data || {}).sort((a, b) => {
+        const diff = Number(a[1]) - Number(b[1]);
+        return diff !== 0 ? diff : a[0].localeCompare(b[0]);
+      });
+      priorityEnabled = true;
+      setControlDisabled(prioritySelect, false);
+      if (!entries.length) {
+        setHtml(prioritySummary, '<div class="text-text-secondary">暂无优先级配置</div>');
+        return;
+      }
+      const items = entries.slice(0, 5).map(([service, value]) => {
+        return `<div>${escapeHtml(service)}: <span class="text-text-main font-semibold">${priorityLabel(
+          value
+        )}</span></div>`;
+      });
+      setHtml(prioritySummary, items.join(""));
+    } catch (error) {
+      priorityEnabled = false;
+      const message =
+        error && error.status === 404
+          ? "ServicePrioritySource 未启用"
+          : `优先级读取失败: ${error.message || "未知错误"}`;
+      setHtml(prioritySummary, `<div class="text-text-secondary">${escapeHtml(message)}</div>`);
+      setControlDisabled(prioritySelect, true);
+    }
+  }
+
+  async function loadPriorityForService(serviceName) {
+    if (!prioritySelect || !priorityEnabled || !serviceName) return;
+    try {
+      const value = await jsonFetch(
+        `/api/priorities/${encodeURIComponent(serviceName)}`
+      );
+      if (value === null || typeof value === "undefined") {
+        setText(prioritySummary, "当前服务尚未配置优先级");
+        return;
+      }
+      prioritySelect.value = String(value);
+      setText(prioritySummary, `当前服务优先级: ${priorityLabel(value)}`);
+    } catch (error) {
+      setText(
+        prioritySummary,
+        error && error.message ? `优先级查询失败: ${error.message}` : "优先级查询失败"
+      );
+    }
+  }
+
+  async function savePriority(serviceName, value) {
+    if (!priorityEnabled || !serviceName || !prioritySelect) return;
+    setText(prioritySummary, "保存中...");
+    try {
+      await jsonFetch(
+        `/api/priorities/${encodeURIComponent(serviceName)}/${encodeURIComponent(
+          value
+        )}`,
+        { method: "POST" }
+      );
+      setText(prioritySummary, `已更新为 ${priorityLabel(value)}`);
+      await refreshPrioritySummary();
+    } catch (error) {
+      setText(
+        prioritySummary,
+        error && error.message ? `保存失败: ${error.message}` : "保存失败"
+      );
+    }
+  }
+
+  async function refreshVis() {
+    if (!visList) return;
+    try {
+      const data = await jsonFetch("/vis/");
+      const items = Array.isArray(data) ? data : [];
+      if (!items.length) {
+        setHtml(visList, "<li>暂无可视化入口</li>");
+        setText(visStatus, "");
+        return;
+      }
+      setText(visStatus, `共 ${items.length} 个入口`);
+      setHtml(
+        visList,
+        items
+          .map((name) => {
+            const url = `/vis/${encodeURIComponent(name)}`;
+            return `
+              <li>
+                <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="${url}">
+                  <span>${escapeHtml(name)}</span>
+                  <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
+                </a>
+              </li>
+            `;
+          })
+          .join("")
+      );
+    } catch (error) {
+      setText(
+        visStatus,
+        error && error.message ? `入口加载失败: ${error.message}` : "入口加载失败"
+      );
+      setHtml(visList, "<li>暂无可用入口</li>");
+    }
+  }
+
+  const setParam = (key, value) => {
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    const query = params.toString();
+    const nextUrl = query
+      ? `${window.location.pathname}?${query}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", nextUrl);
+    preserveQueryLinks();
+  };
+
+  const preserveQueryLinks = () => {
+    document.querySelectorAll("[data-preserve-query]").forEach((link) => {
+      const href = link.getAttribute("href");
+      if (!href) return;
+      const url = new URL(href, base);
+      params.forEach((value, key) => {
+        if (!url.searchParams.has(key)) {
+          url.searchParams.set(key, value);
+        }
+      });
+      link.setAttribute("href", url.pathname + url.search);
+    });
+  };
+
+  const updateResourceLink = () => {
+    const resourceLink = document.querySelector("[data-resource-link]");
+    if (!resourceLink) return;
+    const url = new URL(resourceLink.getAttribute("href"), base);
+    params.forEach((value, key) => url.searchParams.set(key, value));
+    resourceLink.setAttribute("href", url.pathname + url.search);
+  };
+
+  const updateServicePanel = (serviceName) => {
+    const details = serviceDetails[serviceName] || {};
+    const title = document.querySelector("[data-service-title]");
+    if (title) {
+      title.textContent = details.title || serviceName;
+    }
+    const region = document.querySelector("[data-service-region]");
+    if (region && details.region) {
+      region.textContent = details.region;
+    }
+    const health = document.querySelector("[data-service-health]");
+    if (health && details.health) {
+      health.lastChild.textContent = ` ${details.health}`;
+    }
+    const team = document.querySelector("[data-service-team]");
+    if (team && details.team) {
+      team.textContent = details.team;
+    }
+    const language = document.querySelector("[data-service-language]");
+    if (language && details.language) {
+      language.textContent = details.language;
+    }
+    const deploy = document.querySelector("[data-service-deploy]");
+    if (deploy && details.deploy) {
+      deploy.textContent = details.deploy;
+    }
+    const version = document.querySelector("[data-service-version]");
+    if (version && details.version) {
+      version.textContent = details.version;
+    }
+  };
+
+  const highlightService = (serviceName) => {
+    document.querySelectorAll("[data-service]").forEach((node) => {
+      node.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+    });
+    const target = document.querySelector(
+      `[data-service="${escapeCss(serviceName)}"]`
+    );
+    if (target) {
+      target.classList.add("ring-2", "ring-primary", "ring-offset-2");
+    }
+  };
+
+  const setActiveService = (serviceName) => {
+    if (!serviceName) return;
+    currentService = serviceName;
+    highlightService(serviceName);
+    updateServicePanel(serviceName);
+    setParam("service", serviceName);
+    updateResourceLink();
+    loadPriorityForService(serviceName);
+  };
+
+  const issueType = params.get("issueType");
+  const timeRange = params.get("timeRange");
+  if (issueType) {
+    const mapped = issueMap[issueType] || issueType;
+    const radio = document.querySelector(
+      `input[name="analysis_layer"][value="${escapeCss(mapped)}"]`
+    );
+    if (radio) {
+      radio.checked = true;
+    }
+  }
+
+  if (timeRange) {
+    const label = document.querySelector("[data-time-range-label]");
+    if (label) {
+      label.textContent = timeRange;
+    }
+  }
+
+  const initialService = params.get("service");
+  if (initialService) {
+    setActiveService(initialService);
+  }
+
+  document.querySelectorAll("[data-service]").forEach((node) => {
+    node.addEventListener("click", () => {
+      const serviceName = node.getAttribute("data-service");
+      if (serviceName) {
+        setActiveService(serviceName);
+      }
+    });
+  });
+
+  document
+    .querySelectorAll('input[name="analysis_layer"]')
+    .forEach((radio) => {
+      radio.addEventListener("change", () => {
+        if (!radio.checked) return;
+        const mapped = reverseIssueMap[radio.value] || radio.value;
+        setParam("issueType", mapped);
+        updateResourceLink();
+      });
+    });
+
+  if (window.location.protocol === "file:") {
+    setText(reportStatus, "请通过服务访问 /vis/ServiceAnalysisVisualization");
+    setControlDisabled(auditButton, true);
+    setControlDisabled(prioritySelect, true);
+    setControlDisabled(reportRefreshButton, true);
+    setControlDisabled(visRefreshButton, true);
+    return;
+  }
+
+  if (auditButton) {
+    auditButton.addEventListener("click", async () => {
+      const original = auditButton.innerHTML;
+      auditButton.disabled = true;
+      auditButton.classList.add("opacity-70", "cursor-not-allowed");
+      auditButton.innerHTML =
+        '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span><span>审计中...</span>';
+      try {
+        await jsonFetch("/api/audit", { method: "POST" });
+      } catch (error) {
+        auditButton.innerHTML =
+          '<span class="material-symbols-outlined text-[18px]">error</span><span>审计失败</span>';
+        console.error(error);
+      } finally {
+        Promise.allSettled([refreshReports(), refreshPrioritySummary(), refreshVis()]);
+        setTimeout(() => {
+          auditButton.disabled = false;
+          auditButton.classList.remove("opacity-70", "cursor-not-allowed");
+          auditButton.innerHTML = original;
+        }, 800);
+      }
+    });
+  }
+
+  if (reportRefreshButton) {
+    reportRefreshButton.addEventListener("click", () => {
+      refreshReports();
+    });
+  }
+
+  if (prioritySelect) {
+    prioritySelect.addEventListener("change", () => {
+      if (!currentService) {
+        setText(prioritySummary, "请先选择一个服务");
+        return;
+      }
+      savePriority(currentService, prioritySelect.value);
+    });
+  }
+
+  if (visRefreshButton) {
+    visRefreshButton.addEventListener("click", () => {
+      refreshVis();
+    });
+  }
+
+  preserveQueryLinks();
+  updateResourceLink();
+  Promise.allSettled([refreshReports(), refreshPrioritySummary(), refreshVis()]);
+})();
+</script>
+</body></html>

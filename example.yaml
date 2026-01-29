@@ -21,3 +21,6 @@ processors:
     namespaces:
       - default
       - kube-system
+  ControlCenterVisualization: {}
+  ServiceAnalysisVisualization: {}
+  ResourceAuditVisualization: {}
