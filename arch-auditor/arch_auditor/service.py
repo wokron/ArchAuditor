@@ -84,6 +84,33 @@ class ArchAuditService:
         def dashboard_alias(request: Request):
             return dashboard(request)
 
+        @self.app.get("/ServiceAnalysisVisualization", response_class=HTMLResponse)
+        def service_analysis_visualization(request: Request):
+            return self.templates.TemplateResponse(
+                "Service_analysis.html",
+                {
+                    "request": request,
+                },
+            )
+
+        @self.app.get("/ControlCenterVisualization", response_class=HTMLResponse)
+        def control_center_visualization(request: Request):
+            return self.templates.TemplateResponse(
+                "control_center.html",
+                {
+                    "request": request,
+                },
+            )
+
+        @self.app.get("/ResourceAuditVisualization", response_class=HTMLResponse)
+        def resource_audit_visualization(request: Request):
+            return self.templates.TemplateResponse(
+                "Resource_audit.html",
+                {
+                    "request": request,
+                },
+            )
+
         processors_with_vis: list[Processor] = []
         for processor in self.arch_auditor.processors:
             if processor.has_visualization():

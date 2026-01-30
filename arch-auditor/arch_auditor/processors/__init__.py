@@ -13,11 +13,6 @@ from .sources import (
     SingleRootDAGSource,
     K8sConfigSource,
 )
-from .visualizations import (
-    ControlCenterVisualization,
-    ServiceAnalysisVisualization,
-    ResourceAuditVisualization,
-)
 
 native_registry = ProcessorRegistry()
 #### Register native processors begin ####
@@ -31,9 +26,6 @@ native_registry.register(SinglePointAnalyzer)
 native_registry.register(K8sConfigSource)
 native_registry.register(K8sConfigAnalyzer)
 native_registry.register(OverDecompositionAnalyzer)
-native_registry.register(ControlCenterVisualization)
-native_registry.register(ServiceAnalysisVisualization)
-native_registry.register(ResourceAuditVisualization)
 #### Register native processors end ####
 
 __all__ = [
@@ -51,7 +43,4 @@ __all__ = [
     "K8sConfigSource",
     "K8sConfigAnalyzer",
     "OverDecompositionAnalyzer",
-    "ControlCenterVisualization",
-    "ServiceAnalysisVisualization",
-    "ResourceAuditVisualization",
 ]
