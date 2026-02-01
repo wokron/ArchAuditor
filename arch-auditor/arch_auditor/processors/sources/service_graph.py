@@ -3,13 +3,14 @@ from abc import ABC, abstractmethod
 import requests
 from arch_auditor.reporter import ReportMessage, ReportType
 from fastapi.responses import HTMLResponse
-
+import time
 
 class ServiceGraphSource(Processor):
     def __init__(self, context):
         super().__init__(context)
         self.source_type: str | None = None
         self.jaeger_url: str | None = None
+        self.lookback_ms: int = 3600000  # Default: 1 hour in milliseconds
 
     @staticmethod
     def name() -> str:
@@ -35,6 +36,7 @@ class ServiceGraphSource(Processor):
             if jaeger_url is None:
                 return False
             self.jaeger_url = jaeger_url
+            self.lookback_ms = config.get("lookback_ms", 3600000)
             return True
         else:
             # Unknown type
@@ -46,7 +48,9 @@ class ServiceGraphSource(Processor):
 
     def _process_jaeger(self) -> None:
         try:
-            url = f"{self.jaeger_url}/api/dependencies"
+            now_ts = int(time.time() * 1000)
+            end_ts = now_ts
+            url = f"{self.jaeger_url}/api/dependencies?lookback={self.lookback_ms}&endTs={end_ts}"
             response = requests.get(url, timeout=10)
             response.raise_for_status()
 
