@@ -17,7 +17,9 @@ class CircularDependencyAnalyzer(Processor):
 
     def process(self) -> None:
         G = self.context.system_state.graph
-        simple_cycles = list(nx.simple_cycles(G))
+        simple_cycles = nx.simple_cycles(G)
+        # There might be self-loops, for example, tracing inside a service
+        simple_cycles = filter(lambda c: len(c) > 1, simple_cycles)
         for cycle in simple_cycles:
             self.context.reporter.report(
                 ReportMessage(
