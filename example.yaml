@@ -1,23 +1,15 @@
 processors:
   ServiceGraphSource:
-    type: Mock
-    edges:
-      - [A, B]
-      - [B, C]
-      - [C, A]  # Cycle here
-      - [D, E]
-      - [E, F]
-      - [F, D]  # Cycle here
-      - [G, H]
-      - [A, D]  # No cycle here
+    type: Jaeger
+    jaeger_url: http://localhost:8080/jaeger/ui
   CircularDependencyAnalyzer: {}
   ServicePrioritySource:
     type: InMemory
-  K8sConfigSource:
-    namespaces:
-      - default
-      - kube-system
-  K8sConfigAnalyzer:
-    namespaces:
-      - default
-      - kube-system
+  # K8sConfigSource:
+  #   namespaces:
+  #     - default
+  #     - kube-system
+  # K8sConfigAnalyzer:
+  #   namespaces:
+  #     - default
+  #     - kube-system
