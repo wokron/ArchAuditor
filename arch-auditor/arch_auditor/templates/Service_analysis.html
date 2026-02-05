@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
@@ -77,9 +77,9 @@
 </div>
 <div class="flex flex-1 justify-end gap-6 items-center">
 <nav class="hidden lg:flex items-center gap-6">
-<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/vis/ControlCenterVisualization" data-preserve-query="true">仪表盘</a>
-<a class="text-primary text-sm font-bold leading-normal relative after:content-[''] after:absolute after:-bottom-[22px] after:left-0 after:right-0 after:h-[3px] after:bg-primary after:rounded-t-full" href="/vis/ServiceAnalysisVisualization" data-preserve-query="true">拓扑图</a>
-<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/vis/ResourceAuditVisualization" data-preserve-query="true">告警</a>
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/ControlCenterVisualization" data-preserve-query="true">仪表盘</a>
+<a class="text-primary text-sm font-bold leading-normal relative after:content-[''] after:absolute after:-bottom-[22px] after:left-0 after:right-0 after:h-[3px] after:bg-primary after:rounded-t-full" href="/ServiceAnalysisVisualization" data-preserve-query="true">拓扑图</a>
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/ResourceAuditVisualization" data-preserve-query="true">告警</a>
 <a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">设置</a>
 </nav>
 <div class="flex gap-2 items-center border-l border-border pl-6">
@@ -99,10 +99,10 @@
 <div class="flex justify-between items-start pointer-events-auto">
 <div>
 <div class="flex items-center gap-2 text-xs text-text-secondary mb-2">
-<a class="hover:text-primary transition-colors" href="/vis/ControlCenterVisualization" data-preserve-query="true">控制中心</a>
+<a class="hover:text-primary transition-colors" href="/ControlCenterVisualization" data-preserve-query="true">控制中心</a>
 <span class="material-symbols-outlined text-[16px]">chevron_right</span>
 <span class="text-text-main font-medium">服务拓扑</span>
-<a class="ml-4 text-text-secondary hover:text-primary transition-colors" href="/vis/ControlCenterVisualization" data-preserve-query="true">返回控制中心</a>
+<a class="ml-4 text-text-secondary hover:text-primary transition-colors" href="/ControlCenterVisualization" data-preserve-query="true">返回控制中心</a>
 </div>
 <h1 class="text-text-main text-2xl font-extrabold leading-tight mb-1">服务拓扑与风险分析</h1>
 <p class="text-text-secondary text-sm font-normal">可视化微服务依赖关系与架构风险</p>
@@ -354,15 +354,30 @@
 </div>
 <div class="mt-4">
   <div class="flex items-center justify-between">
-    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider">可视化入口</label>
-    <button id="btnRefreshVis" class="text-xs font-bold text-primary hover:text-blue-600">刷新</button>
+    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider">页面入口</label>
   </div>
-  <div id="visStatus" class="text-xs text-text-secondary mt-2"></div>
-  <ul id="visList" class="mt-2 space-y-2 text-sm text-text-secondary">
-    <li>正在加载可视化入口...</li>
+  <ul class="mt-2 space-y-2 text-sm text-text-secondary">
+    <li>
+      <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="/ControlCenterVisualization" data-preserve-query="true">
+        <span>控制中心</span>
+        <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
+      </a>
+    </li>
+    <li>
+      <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="/ServiceAnalysisVisualization" data-preserve-query="true">
+        <span>服务拓扑</span>
+        <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
+      </a>
+    </li>
+    <li>
+      <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="/ResourceAuditVisualization" data-preserve-query="true">
+        <span>资源审计</span>
+        <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
+      </a>
+    </li>
   </ul>
 </div>
-<a class="w-full mt-6 bg-white hover:bg-slate-50 text-text-main font-bold py-2.5 px-4 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 border border-border" data-resource-link href="/vis/ResourceAuditVisualization?service=payment-service-v2">
+<a class="w-full mt-6 bg-white hover:bg-slate-50 text-text-main font-bold py-2.5 px-4 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 border border-border" data-resource-link href="/ResourceAuditVisualization?service=payment-service-v2">
 <span class="material-symbols-outlined text-[18px]">analytics</span>
                     查看资源审计
                  </a>
@@ -453,10 +468,6 @@
   const reportRefreshButton = document.getElementById("btnRefreshReports");
   const prioritySelect = document.getElementById("prioritySelect");
   const prioritySummary = document.getElementById("prioritySummary");
-  const visList = document.getElementById("visList");
-  const visStatus = document.getElementById("visStatus");
-  const visRefreshButton = document.getElementById("btnRefreshVis");
-
   const setText = (el, text) => {
     if (el) {
       el.textContent = text || "";
@@ -668,42 +679,6 @@
     }
   }
 
-  async function refreshVis() {
-    if (!visList) return;
-    try {
-      const data = await jsonFetch("/vis/");
-      const items = Array.isArray(data) ? data : [];
-      if (!items.length) {
-        setHtml(visList, "<li>暂无可视化入口</li>");
-        setText(visStatus, "");
-        return;
-      }
-      setText(visStatus, `共 ${items.length} 个入口`);
-      setHtml(
-        visList,
-        items
-          .map((name) => {
-            const url = `/vis/${encodeURIComponent(name)}`;
-            return `
-              <li>
-                <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="${url}">
-                  <span>${escapeHtml(name)}</span>
-                  <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
-                </a>
-              </li>
-            `;
-          })
-          .join("")
-      );
-    } catch (error) {
-      setText(
-        visStatus,
-        error && error.message ? `入口加载失败: ${error.message}` : "入口加载失败"
-      );
-      setHtml(visList, "<li>暂无可用入口</li>");
-    }
-  }
-
   const setParam = (key, value) => {
     if (value) {
       params.set(key, value);
@@ -839,11 +814,10 @@
     });
 
   if (window.location.protocol === "file:") {
-    setText(reportStatus, "请通过服务访问 /vis/ServiceAnalysisVisualization");
+    setText(reportStatus, "请通过服务访问 /ServiceAnalysisVisualization");
     setControlDisabled(auditButton, true);
     setControlDisabled(prioritySelect, true);
     setControlDisabled(reportRefreshButton, true);
-    setControlDisabled(visRefreshButton, true);
     return;
   }
 
@@ -861,7 +835,7 @@
           '<span class="material-symbols-outlined text-[18px]">error</span><span>审计失败</span>';
         console.error(error);
       } finally {
-        Promise.allSettled([refreshReports(), refreshPrioritySummary(), refreshVis()]);
+        Promise.allSettled([refreshReports(), refreshPrioritySummary()]);
         setTimeout(() => {
           auditButton.disabled = false;
           auditButton.classList.remove("opacity-70", "cursor-not-allowed");
@@ -887,15 +861,10 @@
     });
   }
 
-  if (visRefreshButton) {
-    visRefreshButton.addEventListener("click", () => {
-      refreshVis();
-    });
-  }
-
   preserveQueryLinks();
   updateResourceLink();
-  Promise.allSettled([refreshReports(), refreshPrioritySummary(), refreshVis()]);
+  Promise.allSettled([refreshReports(), refreshPrioritySummary()]);
 })();
 </script>
 </body></html>
+

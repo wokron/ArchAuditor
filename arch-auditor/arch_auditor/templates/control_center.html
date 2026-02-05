@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
@@ -278,7 +278,7 @@
               </div>
               <div
                 class="flex flex-col gap-3 rounded-xl p-5 border border-border-subtle bg-white hover:border-emerald-300 hover:shadow-sm transition-all group cursor-pointer"
-                data-link="/vis/ServiceAnalysisVisualization?issueType=circular&timeRange=24h"
+                data-link="/ServiceAnalysisVisualization?issueType=circular&timeRange=24h"
               >
                 <div class="flex justify-between items-start">
                   <div
@@ -305,7 +305,7 @@
               </div>
               <div
                 class="flex flex-col gap-3 rounded-xl p-5 border border-border-subtle bg-white hover:border-amber-300 hover:shadow-sm transition-all group cursor-pointer"
-                data-link="/vis/ServiceAnalysisVisualization?issueType=hierarchy&timeRange=24h"
+                data-link="/ServiceAnalysisVisualization?issueType=hierarchy&timeRange=24h"
               >
                 <div class="flex justify-between items-start">
                   <div
@@ -332,7 +332,7 @@
               </div>
               <div
                 class="flex flex-col gap-3 rounded-xl p-5 border border-border-subtle bg-white hover:border-primary/50 hover:shadow-sm transition-all group cursor-pointer"
-                data-link="/vis/ResourceAuditVisualization?issueType=resource&timeRange=24h"
+                data-link="/ResourceAuditVisualization?issueType=resource&timeRange=24h"
               >
                 <div class="flex justify-between items-start">
                   <div
@@ -460,7 +460,7 @@
                   <h3 class="font-bold text-lg text-text-main">拓扑预览</h3>
                   <button
                     class="p-1 rounded hover:bg-slate-100 text-text-muted"
-                    data-link="/vis/ServiceAnalysisVisualization?timeRange=24h"
+                    data-link="/ServiceAnalysisVisualization?timeRange=24h"
                   >
                     <span class="material-symbols-outlined">open_in_full</span>
                   </button>
@@ -588,18 +588,49 @@
                 <div
                   class="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-gray-50/30"
                 >
-                  <h3 class="font-bold text-lg text-text-main">可视化入口</h3>
-                  <button
-                    id="btnRefreshVis"
-                    class="text-sm font-medium text-primary hover:text-primary-dark hover:underline"
-                  >
-                    刷新
-                  </button>
+                  <h3 class="font-bold text-lg text-text-main">页面入口</h3>
                 </div>
-                <div class="p-6 flex flex-col gap-3">
-                  <div id="visStatus" class="text-xs text-text-muted"></div>
-                  <ul id="visList" class="space-y-2 text-sm text-text-main">
-                    <li class="text-text-muted">正在加载可视化入口...</li>
+                <div class="p-6">
+                  <ul class="space-y-2 text-sm text-text-main">
+                    <li>
+                      <a
+                        class="flex items-center justify-between rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-primary hover:border-primary/50 hover:bg-white"
+                        href="/ControlCenterVisualization"
+                        data-preserve-query="true"
+                      >
+                        控制中心
+                        <span
+                          class="material-symbols-outlined text-base text-text-muted"
+                          >open_in_new</span
+                        >
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        class="flex items-center justify-between rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-primary hover:border-primary/50 hover:bg-white"
+                        href="/ServiceAnalysisVisualization"
+                        data-preserve-query="true"
+                      >
+                        服务拓扑
+                        <span
+                          class="material-symbols-outlined text-base text-text-muted"
+                          >open_in_new</span
+                        >
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        class="flex items-center justify-between rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-primary hover:border-primary/50 hover:bg-white"
+                        href="/ResourceAuditVisualization"
+                        data-preserve-query="true"
+                      >
+                        资源审计
+                        <span
+                          class="material-symbols-outlined text-base text-text-muted"
+                          >open_in_new</span
+                        >
+                      </a>
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -770,10 +801,6 @@
         "prioritiesTableBody"
       );
 
-      const visList = document.getElementById("visList");
-      const visStatus = document.getElementById("visStatus");
-      const visRefreshButton = document.getElementById("btnRefreshVis");
-
       const setAuditStatus = (text) => {
         if (auditStatus) {
           auditStatus.textContent = text || "";
@@ -878,19 +905,19 @@
         const message = (report.message || "").toLowerCase();
         const source = (report.source || "").toLowerCase();
         if (message.includes("circular dependency")) {
-          return "/vis/ServiceAnalysisVisualization?issueType=circular&timeRange=24h";
+          return "/ServiceAnalysisVisualization?issueType=circular&timeRange=24h";
         }
         if (message.includes("priority violation") || message.includes("priority")) {
-          return "/vis/ServiceAnalysisVisualization?issueType=hierarchy&timeRange=24h";
+          return "/ServiceAnalysisVisualization?issueType=hierarchy&timeRange=24h";
         }
         if (
           source.includes("k8s") ||
           message.includes("deployment") ||
           message.includes("pod")
         ) {
-          return "/vis/ResourceAuditVisualization?issueType=resource&timeRange=24h";
+          return "/ResourceAuditVisualization?issueType=resource&timeRange=24h";
         }
-        return "/vis/ServiceAnalysisVisualization?timeRange=24h";
+        return "/ServiceAnalysisVisualization?timeRange=24h";
       }
 
       function updateMetrics(reports) {
@@ -1143,65 +1170,21 @@
         }
       }
 
-      async function refreshVis() {
-        if (!visList) {
-          return;
-        }
-        try {
-          const data = await jsonFetch("/vis/");
-          const items = Array.isArray(data) ? data : [];
-          if (!items.length) {
-            visList.innerHTML =
-              '<li class="text-text-muted">暂无可视化入口</li>';
-            setText(visStatus, "");
-            return;
-          }
-          setText(visStatus, `共 ${items.length} 个可视化`);
-          visList.innerHTML = items
-            .map((name) => {
-              const safeName = escapeHtml(name);
-              const url = `/vis/${encodeURIComponent(name)}`;
-              return `
-                <li>
-                  <a
-                    class="flex items-center justify-between rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-primary hover:border-primary/50 hover:bg-white"
-                    href="${url}"
-                  >
-                    ${safeName}
-                    <span class="material-symbols-outlined text-base text-text-muted">open_in_new</span>
-                  </a>
-                </li>
-              `;
-            })
-            .join("");
-        } catch (error) {
-          setText(
-            visStatus,
-            error && error.message ? `可视化加载失败: ${error.message}` : "可视化加载失败"
-          );
-          visList.innerHTML =
-            '<li class="text-text-muted">暂无可用入口</li>';
-        }
-      }
-
       async function refreshAll() {
         await Promise.allSettled([
           refreshReports(),
           refreshPriorities(),
-          refreshVis(),
         ]);
       }
 
       if (window.location.protocol === "file:") {
-        setAuditStatus("请通过服务访问 /vis/ControlCenterVisualization");
+        setAuditStatus("请通过服务访问 /ControlCenterVisualization");
         setControlDisabled(auditButton, true);
         setText(priorityStatus, "需要通过服务访问以启用优先级接口");
         setControlDisabled(priorityService, true);
         setControlDisabled(priorityValue, true);
         setControlDisabled(prioritySaveButton, true);
         setControlDisabled(priorityRefreshButton, true);
-        setText(visStatus, "需要通过服务访问以加载可视化列表");
-        setControlDisabled(visRefreshButton, true);
         return;
       }
 
@@ -1250,14 +1233,9 @@
         });
       }
 
-      if (visRefreshButton) {
-        visRefreshButton.addEventListener("click", () => {
-          refreshVis();
-        });
-      }
-
       refreshAll().catch(() => {});
     })();
   </script>
   </body>
 </html>
+
