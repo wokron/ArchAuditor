@@ -6,7 +6,6 @@ import time
 
 
 class PrometheusMetricsSource(Processor):
-    #从Prometheus获取数据
     def __init__(self, context):
         super().__init__(context)
         self.source_type: str | None = None
@@ -16,9 +15,11 @@ class PrometheusMetricsSource(Processor):
             "error_rate": {},
             "throughput": {},
         }
+
     @staticmethod
     def name() -> str:
         return "PrometheusMetricsSource"
+
     @staticmethod
     def requires() -> list[str]:
         return ["ServiceGraphSource"]
@@ -28,7 +29,7 @@ class PrometheusMetricsSource(Processor):
         if source_type is None:
             return False
         self.source_type = source_type
-       
+
         if source_type == "Prometheus":
             prometheus_url = config.get("prometheus_url", None)
             if prometheus_url is None:
@@ -36,23 +37,32 @@ class PrometheusMetricsSource(Processor):
             self.prometheus_url = prometheus_url
             self.range_seconds = config.get("range_seconds", 3600)
             self.step = config.get("step", "60s")
-            
-            self.latency_query = config.get("latency_query", '''
+
+            self.latency_query = config.get(
+                "latency_query",
+                """
                 histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le, service_name))
                 or histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket[5m])) by (le, service_name)) / 1000
                 or histogram_quantile(0.95, sum(rate(http_server_duration_seconds_bucket[5m])) by (le, service_name))
                 or histogram_quantile(0.95, sum(rate(rpc_server_duration_milliseconds_bucket[5m])) by (le, service_name)) / 1000
-            ''')
-            self.throughput_query = config.get("throughput_query", '''
+            """,
+            )
+            self.throughput_query = config.get(
+                "throughput_query",
+                """
                 sum(rate(http_server_request_duration_seconds_count[5m])) by (service_name)
                 or sum(rate(http_server_duration_milliseconds_count[5m])) by (service_name)
                 or sum(rate(http_server_duration_seconds_count[5m])) by (service_name)
                 or sum(rate(rpc_server_duration_milliseconds_count[5m])) by (service_name)
-            ''')
-            self.error_rate_query = config.get("error_rate_query", '''
+            """,
+            )
+            self.error_rate_query = config.get(
+                "error_rate_query",
+                """
                 sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) by (service_name) 
                 / sum(rate(http_server_request_duration_seconds_count[5m])) by (service_name)
-            ''')
+            """,
+            )
             return True
         return False
 
@@ -71,7 +81,7 @@ class PrometheusMetricsSource(Processor):
             throughput_data = self._query_prometheus_range(self.throughput_query)
             self._update_timeseries(throughput_data, "throughput")
 
-            self._update_graph_latest_metrics()
+            self._update_graph_metrics()
         except requests.exceptions.RequestException as e:
             self.context.reporter.report(
                 ReportMessage(
@@ -85,7 +95,12 @@ class PrometheusMetricsSource(Processor):
         url = f"{self.prometheus_url}/api/v1/query_range"
         end_time = time.time()
         start_time = end_time - self.range_seconds
-        params = {"query": query, "start": start_time, "end": end_time, "step": self.step}
+        params = {
+            "query": query,
+            "start": start_time,
+            "end": end_time,
+            "step": self.step,
+        }
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         return response.json()
@@ -98,32 +113,30 @@ class PrometheusMetricsSource(Processor):
         for result in results:
             metric_labels = result.get("metric", {})
             service_name = (
-                metric_labels.get("service_name") or
-                metric_labels.get("service") or
-                metric_labels.get("job") or
-                metric_labels.get("app")
+                metric_labels.get("service_name")
+                or metric_labels.get("service")
+                or metric_labels.get("job")
+                or metric_labels.get("app")
             )
             if service_name:
-                values = result.get("values", [])
-                timeseries = []
-                for ts, val in values:
+
+                def process_value(val):
                     try:
-                        timeseries.append({
-                            "timestamp": ts,
-                            "value": float(val) if val != "NaN" else None
-                        })
+                        return float(val) if val != "NaN" else None
                     except (ValueError, TypeError):
-                        pass
+                        return None
+
+                timeseries = list(
+                    map(lambda x: (x[0], process_value(x[1])), result.get("values", []))
+                )
                 self.metrics_timeseries[metric_name][service_name] = timeseries
 
-    def _update_graph_latest_metrics(self) -> None:
+    def _update_graph_metrics(self) -> None:
         G = self.context.system_state.graph
         for metric_name, services_data in self.metrics_timeseries.items():
             for service_name, timeseries in services_data.items():
                 if service_name in G.nodes and timeseries:
-                    latest = timeseries[-1]
-                    if latest["value"] is not None:
-                        G.nodes[service_name][metric_name] = latest["value"]
+                    G.nodes[service_name][metric_name] = timeseries
 
     @staticmethod
     def has_visualization() -> bool:
@@ -131,15 +144,14 @@ class PrometheusMetricsSource(Processor):
 
     def visualize(self):
         G = self.context.system_state.graph
-        services_latest = {}
+        services_timeseries = {}
         for node in G.nodes:
             node_data = G.nodes[node]
-            services_latest[node] = {
+            services_timeseries[node] = {
                 "latency": node_data.get("latency"),
                 "error_rate": node_data.get("error_rate"),
                 "throughput": node_data.get("throughput"),
             }
-        return JSONResponse(content={
-            "latest": services_latest,
-            "timeseries": self.metrics_timeseries,
-        })
+        return JSONResponse(
+            content=services_timeseries,
+        )
