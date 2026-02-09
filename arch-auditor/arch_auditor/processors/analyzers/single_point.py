@@ -16,7 +16,7 @@ class SinglePointAnalyzer(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return ["ServicePrioritySource", "SingleRootDAGSource"]
+        return ["ServicePrioritySource", "SingleRootDAGSource", "PrometheusMetricsSource"]
 
     def init(self, config) -> bool:
         return True

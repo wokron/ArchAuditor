@@ -30,7 +30,14 @@ class PrometheusMetricsSource(Processor):
             return False
         self.source_type = source_type
 
-        if source_type == "Prometheus":
+        if source_type == "Mock":
+            metrics = config.get("metrics", {})
+            for metric_name, services_data in metrics.items():
+                for service_name, timeseries in services_data.items():
+                    self.metrics_timeseries[metric_name][service_name] = timeseries
+            self._update_graph_metrics()
+            return True
+        elif source_type == "Prometheus":
             prometheus_url = config.get("prometheus_url", None)
             if prometheus_url is None:
                 return False

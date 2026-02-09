@@ -27,6 +27,29 @@ def test_single_point_analyzer_priority_reverse():
                 "type": "InMemory",
             },
             "SinglePointAnalyzer": {},
+            "PrometheusMetricsSource": {
+                "type": "Mock",
+                "metrics": {
+                    "latency": {
+                        "ServiceA": [(0, 100), (60, 120)],
+                        "ServiceB": [(0, 200), (60, 220)],
+                        "ServiceC": [(0, 300), (60, 320)],
+                        "ServiceD": [(0, 400), (60, 420)],
+                    },
+                    "error_rate": {
+                        "ServiceA": [(0, 0.01), (60, 0.02)],
+                        "ServiceB": [(0, 0.03), (60, 0.04)],
+                        "ServiceC": [(0, 0.05), (60, 0.06)],
+                        "ServiceD": [(0, 0.07), (60, 0.08)],
+                    },
+                    "throughput": {
+                        "ServiceA": [(0, 1000), (60, 1100)],
+                        "ServiceB": [(0, 900), (60, 950)],
+                        "ServiceC": [(0, 800), (60, 850)],
+                        "ServiceD": [(0, 700), (60, 750)],
+                    },
+                },
+            },
         }
     }
 
