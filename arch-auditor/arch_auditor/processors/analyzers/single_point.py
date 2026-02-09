@@ -16,7 +16,11 @@ class SinglePointAnalyzer(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return ["ServicePrioritySource", "SingleRootDAGSource", "PrometheusMetricsSource"]
+        return [
+            "ServicePrioritySource",
+            "SingleRootDAGSource",
+            "PrometheusMetricsSource",
+        ]
 
     def init(self, config) -> bool:
         return True
@@ -90,7 +94,7 @@ class SinglePointAnalyzer(Processor):
         def dfs(n):
             if n in self.criticality_scores:
                 return self.criticality_scores[n]
-            self_score = 1  # TODO: Use actual metrics to calculate self score
+            self_score = self._get_score(n)
             children_score = sum(
                 dfs(child) for child in dominator_tree_children.get(n, [])
             )
@@ -100,6 +104,20 @@ class SinglePointAnalyzer(Processor):
 
         for node in self.context.system_state.graph.nodes:
             dfs(node)
+
+    def _get_score(self, node) -> float:
+        # Score is the avg of the node's qps
+        node_data = self.context.system_state.graph.nodes[node]
+        timeseries = node_data.get("throughput", [])
+        if not timeseries or len(timeseries) == 0:
+            return 0.0
+        total = 0.0
+        count = 0
+        for ts, value in timeseries:
+            if value is not None:
+                total += value
+                count += 1
+        return total / count if count > 0 else 0.0
 
     @staticmethod
     def has_visualization() -> bool:
