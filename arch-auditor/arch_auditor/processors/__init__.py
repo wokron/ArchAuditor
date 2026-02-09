@@ -12,6 +12,7 @@ from .sources import (
     ServiceDependencySource,
     SingleRootDAGSource,
     K8sConfigSource,
+    PrometheusMetricsSource,
 )
 
 native_registry = ProcessorRegistry()
@@ -26,6 +27,7 @@ native_registry.register(SinglePointAnalyzer)
 native_registry.register(K8sConfigSource)
 native_registry.register(K8sConfigAnalyzer)
 native_registry.register(OverDecompositionAnalyzer)
+native_registry.register(PrometheusMetricsSource)
 #### Register native processors end ####
 
 __all__ = [
@@ -43,4 +45,5 @@ __all__ = [
     "K8sConfigSource",
     "K8sConfigAnalyzer",
     "OverDecompositionAnalyzer",
+    "PrometheusMetricsSource",
 ]
