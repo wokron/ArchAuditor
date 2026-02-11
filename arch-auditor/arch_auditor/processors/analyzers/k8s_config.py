@@ -218,7 +218,7 @@ class K8sConfigAnalyzer(Processor):
         return True
 
 
-    def visualize(self, request: Request | None = None):
+    def visualize(self, request: Request):
         issues = self.issues or []
         total = len(issues)
         query_params = request.query_params if request else {}
