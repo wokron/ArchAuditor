@@ -1,0 +1,1316 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ArchAuditor - 服务拓扑</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2563eb",
+                        "primary-subtle": "#eff6ff",
+                        "background": "#ffffff",
+                        "surface": "#ffffff",
+                        "border": "#e2e8f0",
+                        "text-main": "#0f172a",
+                        "text-secondary": "#64748b",
+                        "danger": "#ef4444",
+                        "success": "#16a34a",
+                        "warning": "#d97706"
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    boxShadow: {
+                        "soft": "0 2px 10px rgba(0, 0, 0, 0.03)",
+                        "card": "0 4px 20px rgba(0, 0, 0, 0.06)",
+                        "glow": "0 0 20px rgba(37, 99, 235, 0.2)"
+                    }
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        .bg-dot-pattern {
+            background-color: #ffffff;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        @keyframes flow {
+            0% { stroke-dashoffset: 20; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .animate-flow {
+            animation: flow 1s linear infinite;
+        }
+        .node-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .node-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-background text-text-main font-display overflow-hidden h-screen flex flex-col">
+<div class="hidden bg-success/10 text-success border-success/20 bg-warning/10 text-warning border-warning/20 bg-danger/10 text-danger border-danger/20 ring-2 ring-primary ring-offset-2"></div>
+<header class="flex-none flex items-center justify-between whitespace-nowrap border-b border-solid border-border px-6 py-3 bg-surface z-20 shadow-sm">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="size-8 flex items-center justify-center bg-primary rounded-lg text-white shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined" style="font-size: 20px;">hub</span>
+</div>
+<h2 class="text-text-main text-lg font-bold leading-tight tracking-[-0.015em]">ArchAuditor</h2>
+</div>
+<label class="flex flex-col min-w-40 !h-10 max-w-64 hidden md:flex">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full bg-slate-100 border border-transparent focus-within:bg-white focus-within:border-primary/50 transition-all">
+<div class="text-text-secondary flex items-center justify-center pl-3">
+<span class="material-symbols-outlined" style="font-size: 20px;">search</span>
+</div>
+<input class="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-text-main focus:outline-0 focus:ring-0 border-none bg-transparent h-full placeholder:text-text-secondary px-3 text-sm font-normal leading-normal" placeholder="搜索服务..."/>
+</div>
+</label>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<nav class="hidden lg:flex items-center gap-6">
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/ControlCenterVisualization" data-preserve-query="true">仪表盘</a>
+<a class="text-primary text-sm font-bold leading-normal relative after:content-[''] after:absolute after:-bottom-[22px] after:left-0 after:right-0 after:h-[3px] after:bg-primary after:rounded-t-full" href="/ServiceAnalysisVisualization" data-preserve-query="true">拓扑图</a>
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="/ResourceAuditVisualization" data-preserve-query="true">告警</a>
+<a class="text-text-secondary hover:text-primary transition-colors text-sm font-medium leading-normal" href="#">设置</a>
+</nav>
+<div class="flex gap-2 items-center border-l border-border pl-6">
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-slate-100 text-text-secondary hover:text-text-main transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">notifications</span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-slate-100 text-text-secondary hover:text-text-main transition-colors">
+<span class="material-symbols-outlined" style="font-size: 20px;">help</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-9 ml-2 border border-border ring-2 ring-white shadow-sm" data-alt="User Avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCNy82E9VMXAaOCX9WoSYIEFIB1E6kzeoUsCA1VT5Lde_Z6VT_KvSJ1mhu5yWmI8wL75zrpFg9aPUXmF4BemzI_kBRlCH6c14JTiWG7pU7nQIL3NcUP0fSwwbwquurkvPyY1p-Edh10qrJrep721oBrIXQQfioQMlPtRzAZB4AJd4aMzpreH-q5mF5KSL25scR6Bz-gVvtkhJjvrabkHTuFv_TMWHOOer99haQ2wCWdDmiQzjg09-i-ry-9J5y8yCo7GMC3ziHFW4zG");'></div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<main class="flex-1 flex flex-col relative min-w-0">
+<div class="absolute top-0 left-0 right-0 z-10 p-6 pointer-events-none flex flex-col gap-4">
+<div class="flex justify-between items-start pointer-events-auto">
+<div>
+<div class="flex items-center gap-2 text-xs text-text-secondary mb-2">
+<a class="hover:text-primary transition-colors" href="/ControlCenterVisualization" data-preserve-query="true">控制中心</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-text-main font-medium">服务拓扑</span>
+<a class="ml-4 text-text-secondary hover:text-primary transition-colors" href="/ControlCenterVisualization" data-preserve-query="true">返回控制中心</a>
+</div>
+<h1 class="text-text-main text-2xl font-extrabold leading-tight mb-1">服务拓扑与风险分析</h1>
+<p class="text-text-secondary text-sm font-normal">可视化微服务依赖关系与架构风险</p>
+</div>
+<div class="flex items-center gap-2">
+<button id="btnTriggerAudit" class="flex items-center gap-2 h-9 px-4 bg-primary text-white hover:bg-blue-600 transition-all shadow-sm rounded-lg text-sm font-bold">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+<span>立即审计</span>
+</button>
+<button class="flex items-center gap-2 h-9 px-4 bg-surface border border-border hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm rounded-lg text-text-main text-sm font-medium">
+<span class="material-symbols-outlined text-text-secondary" style="font-size: 18px;">calendar_today</span>
+<span data-time-range-label>最近24小时</span>
+<span class="material-symbols-outlined text-text-secondary" style="font-size: 18px;">expand_more</span>
+</button>
+</div>
+</div>
+<div class="self-center mt-2 pointer-events-auto shadow-card rounded-xl bg-surface border border-border p-1.5 inline-flex">
+<label class="cursor-pointer px-4 py-2 rounded-lg transition-all hover:bg-slate-50 has-[:checked]:bg-primary has-[:checked]:text-white has-[:checked]:shadow-md text-text-secondary text-sm font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+<span>循环依赖</span>
+<input class="hidden" name="analysis_layer" type="radio" value="Circular"/>
+</label>
+<label class="cursor-pointer px-4 py-2 rounded-lg transition-all hover:bg-slate-50 has-[:checked]:bg-primary has-[:checked]:text-white has-[:checked]:shadow-md text-text-secondary text-sm font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">layers</span>
+<span>服务等级</span>
+<input checked="" class="hidden" name="analysis_layer" type="radio" value="Hierarchy"/>
+</label>
+<label class="cursor-pointer px-4 py-2 rounded-lg transition-all hover:bg-slate-50 has-[:checked]:bg-primary has-[:checked]:text-white has-[:checked]:shadow-md text-text-secondary text-sm font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">account_tree</span>
+<span>支配树</span>
+<input class="hidden" name="analysis_layer" type="radio" value="Dominator"/>
+</label>
+</div>
+</div>
+<div id="serviceGraphContainer" class="w-full h-full bg-background bg-dot-pattern relative overflow-hidden group cursor-grab active:cursor-grabbing">
+<svg id="serviceGraphEdges" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+<defs>
+<linearGradient id="gradient-line" x1="0%" x2="100%" y1="0%" y2="0%">
+<stop offset="0%" stop-color="#94a3b8" stop-opacity="0.3"></stop>
+<stop offset="100%" stop-color="#94a3b8" stop-opacity="0.8"></stop>
+</linearGradient>
+<marker id="arrowhead" markerHeight="6" markerWidth="6" orient="auto" refX="8" refY="3">
+<path d="M0,0 L6,3 L0,6 L1,3 z" fill="#94a3b8"></path>
+</marker>
+<marker id="arrowhead-danger" markerHeight="8" markerWidth="8" orient="auto" refX="8" refY="4">
+<path d="M0,0 L8,4 L0,8 L2,4 z" fill="#ef4444"></path>
+</marker>
+</defs>
+<g id="serviceGraphEdgeBase"></g>
+<g id="serviceGraphEdgeFlow"></g>
+</svg>
+<div id="serviceGraphNodes" class="absolute inset-0 z-10"></div>
+<div id="serviceGraphEmpty" class="absolute inset-0 hidden items-center justify-center z-20">
+<div class="rounded-xl border border-border bg-surface/90 px-6 py-4 text-sm text-text-secondary shadow-card">
+暂无拓扑数据，请先触发审计或检查数据源。
+</div>
+</div>
+<div class="absolute bottom-6 left-6 flex flex-col gap-2 z-20">
+<button class="size-9 bg-surface border border-border rounded-lg flex items-center justify-center text-text-secondary hover:text-primary hover:border-primary/50 shadow-sm transition-all">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="size-9 bg-surface border border-border rounded-lg flex items-center justify-center text-text-secondary hover:text-primary hover:border-primary/50 shadow-sm transition-all">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<button class="size-9 bg-surface border border-border rounded-lg flex items-center justify-center text-text-secondary hover:text-primary hover:border-primary/50 shadow-sm transition-all mt-2">
+<span class="material-symbols-outlined text-[20px]">center_focus_strong</span>
+</button>
+</div>
+<div class="absolute bottom-6 right-6 bg-surface/90 backdrop-blur border border-border rounded-xl p-4 z-20 shadow-card">
+<h4 class="text-[10px] uppercase font-bold text-text-secondary mb-3 tracking-wider">节点状态</h4>
+<div class="flex flex-col gap-2.5">
+<div class="flex items-center gap-2.5">
+<div class="size-2.5 rounded-full bg-success shadow-sm"></div>
+<span class="text-xs font-medium text-text-main">健康</span>
+</div>
+<div class="flex items-center gap-2.5">
+<div class="size-2.5 rounded-full bg-warning shadow-sm"></div>
+<span class="text-xs font-medium text-text-main">警告</span>
+</div>
+<div class="flex items-center gap-2.5">
+<div class="size-2.5 rounded-full bg-danger shadow-sm"></div>
+<span class="text-xs font-medium text-text-main">严重</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<aside class="w-96 bg-surface border-l border-border flex flex-col z-20 shadow-card overflow-y-auto">
+<div class="p-6 border-b border-border bg-slate-50/50">
+<div class="flex items-start justify-between mb-4">
+<div class="size-14 rounded-xl bg-white border border-border shadow-sm flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[32px]">shopping_cart</span>
+</div>
+<div class="flex flex-col items-end">
+<span id="servicePriorityBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-danger/10 text-danger border border-danger/20 text-xs font-bold uppercase tracking-wide">
+<span id="servicePriorityDot" class="size-1.5 rounded-full bg-danger animate-pulse"></span>
+<span id="servicePriorityText">严重 P0</span>
+</span>
+</div>
+</div>
+<h3 class="text-text-main text-xl font-bold mb-1" data-service-title>结算服务-v4</h3>
+<div class="flex items-center gap-2 text-text-secondary text-sm">
+<span class="material-symbols-outlined text-[16px]">domain</span>
+<span data-service-region>us-east-1a</span>
+<span class="mx-1 text-border">•</span>
+<span id="serviceHealth" class="text-success font-medium flex items-center gap-1" data-service-health>
+<span id="serviceHealthIcon" class="material-symbols-outlined text-[14px]">check_circle</span>
+<span id="serviceHealthText">健康</span>
+</span>
+</div>
+</div>
+<div class="p-6 flex flex-col gap-6 border-b border-border">
+<div>
+<div class="flex justify-between items-end mb-2">
+<label class="text-xs font-bold text-text-secondary uppercase tracking-wider">错误率趋势</label>
+<span class="text-danger font-mono font-bold text-lg">0.05% <span class="text-[10px] text-text-secondary font-sans font-medium ml-1">对比均值 0.01%</span></span>
+</div>
+<div class="h-20 w-full bg-slate-50 rounded-xl p-0 border border-border relative overflow-hidden">
+<svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 40">
+<path d="M0 35 L10 34 L20 36 L30 35 L40 35 L50 20 L60 5 L70 15 L80 25 L90 30 L100 32" fill="none" stroke="#ef4444" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<path d="M0 35 L10 34 L20 36 L30 35 L40 35 L50 20 L60 5 L70 15 L80 25 L90 30 L100 32 L100 40 L0 40 Z" fill="url(#sparkGradient)" opacity="0.1"></path>
+<defs>
+<linearGradient id="sparkGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#ef4444"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</linearGradient>
+</defs>
+</svg>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-background p-4 rounded-xl border border-border">
+<div class="text-text-secondary text-xs font-medium mb-1">吞吐量 (QPS)</div>
+<div class="text-text-main text-2xl font-bold font-display">4,521</div>
+<div class="text-success text-[11px] font-bold flex items-center mt-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span class="ml-0.5">+12%</span>
+</div>
+</div>
+<div class="bg-background p-4 rounded-xl border border-border">
+<div class="text-text-secondary text-xs font-medium mb-1">延迟 (P99)</div>
+<div class="text-text-main text-2xl font-bold font-display">245<span class="text-sm font-normal text-text-secondary ml-1">ms</span></div>
+<div class="text-warning text-[11px] font-bold flex items-center mt-1">
+<span class="material-symbols-outlined text-[14px]">trending_flat</span>
+<span class="ml-0.5">稳定</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-6 border-b border-border flex flex-col gap-5">
+  <div>
+    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">优先级设置</label>
+    <div class="relative">
+      <select id="prioritySelect" class="w-full bg-white text-text-main border border-border rounded-lg px-4 py-2.5 appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer hover:border-primary/50 transition-colors shadow-sm">
+        <option value="0">P0 - 严重 (Critical)</option>
+        <option value="1">P1 - 高 (High)</option>
+        <option value="2">P2 - 标准 (Standard)</option>
+        <option value="3">P3 - 低 (Low)</option>
+      </select>
+      <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none">expand_more</span>
+    </div>
+    <p class="text-xs text-text-secondary mt-2 flex items-start gap-1">
+      <span class="material-symbols-outlined text-[14px] mt-0.5">info</span>
+      更改优先级将立即更新告警阈值。
+    </p>
+    <div id="prioritySummary" class="mt-3 text-xs text-text-secondary">正在加载优先级...</div>
+  </div>
+<div>
+<label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">依赖关系</label>
+<div id="dependencyList" class="flex flex-col gap-2 text-sm text-text-secondary">
+<div class="text-xs text-text-secondary">暂无依赖关系</div>
+</div>
+</div>
+</div>
+<div class="p-6 border-b border-border flex flex-col gap-4">
+  <div class="flex items-center justify-between">
+    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider">审计日志</label>
+    <button id="btnRefreshReports" class="text-xs font-bold text-primary hover:text-blue-600">刷新</button>
+  </div>
+  <div id="reportStatus" class="text-xs text-text-secondary"></div>
+  <div id="reportList" class="space-y-3 text-sm text-text-secondary">正在加载审计日志...</div>
+</div>
+<div class="p-6 mt-auto bg-slate-50/30">
+<label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-3">元数据</label>
+<div class="space-y-3">
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">负责人团队</span>
+<span class="text-text-main font-medium" data-service-team>Checkout Squad</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">开发语言</span>
+<div class="flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-blue-500"></div>
+<span class="text-text-main font-medium" data-service-language>Go 1.21</span>
+</div>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">上次部署</span>
+<span class="text-text-main font-medium" data-service-deploy>2 小时前</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-text-secondary">版本</span>
+<span class="text-text-main font-medium font-mono" data-service-version>v4.2.1-rc3</span>
+</div>
+</div>
+<div class="mt-4">
+  <div class="flex items-center justify-between">
+    <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider">页面入口</label>
+  </div>
+  <ul class="mt-2 space-y-2 text-sm text-text-secondary">
+    <li>
+      <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="/ControlCenterVisualization" data-preserve-query="true">
+        <span>控制中心</span>
+        <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
+      </a>
+    </li>
+    <li>
+      <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="/ServiceAnalysisVisualization" data-preserve-query="true">
+        <span>服务拓扑</span>
+        <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
+      </a>
+    </li>
+    <li>
+      <a class="flex items-center justify-between rounded-lg border border-border bg-slate-50/60 px-3 py-2 hover:border-primary/40 hover:bg-white transition-colors" href="/ResourceAuditVisualization" data-preserve-query="true">
+        <span>资源审计</span>
+        <span class="material-symbols-outlined text-base text-text-secondary">open_in_new</span>
+      </a>
+    </li>
+  </ul>
+</div>
+<a class="w-full mt-6 bg-white hover:bg-slate-50 text-text-main font-bold py-2.5 px-4 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 border border-border" data-resource-link href="/ResourceAuditVisualization?service=payment-service-v2">
+<span class="material-symbols-outlined text-[18px]">analytics</span>
+                    查看资源审计
+                 </a>
+<button class="w-full mt-4 bg-primary hover:bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                    编辑服务配置
+                 </button>
+</div>
+</aside>
+</div>
+
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const base =
+    window.location.origin && window.location.origin !== "null"
+      ? window.location.origin
+      : window.location.href;
+
+  const escapeCss =
+    window.CSS && typeof window.CSS.escape === "function"
+      ? window.CSS.escape
+      : (value) => String(value).replace(/"/g, '\\"');
+
+  const issueMap = {
+    circular: "Circular",
+    hierarchy: "Hierarchy",
+    sla: "Hierarchy",
+    dominator: "Dominator",
+  };
+  const reverseIssueMap = {
+    Circular: "circular",
+    Hierarchy: "hierarchy",
+    Dominator: "dominator",
+  };
+
+  const serviceDetails = {
+    "payment-service-v2": {
+      title: "结算服务-v4",
+      region: "us-east-1a",
+      health: "健康 (99.9%)",
+      team: "Checkout Squad",
+      language: "Go 1.21",
+      deploy: "2 小时前",
+      version: "v4.2.1-rc3",
+    },
+    "api-gateway": {
+      title: "API 网关",
+      region: "us-east-1a",
+      health: "稳定 (99.7%)",
+      team: "Platform Team",
+      language: "Java 17",
+      deploy: "30 分钟前",
+      version: "v2.6.0",
+    },
+    "auth-service": {
+      title: "认证服务",
+      region: "us-east-1a",
+      health: "稳定 (99.8%)",
+      team: "Security Team",
+      language: "Go 1.20",
+      deploy: "1 小时前",
+      version: "v3.9.2",
+    },
+    "inventory-service": {
+      title: "库存服务",
+      region: "us-east-1a",
+      health: "稳定 (99.6%)",
+      team: "Supply Team",
+      language: "Python 3.11",
+      deploy: "3 小时前",
+      version: "v1.8.4",
+    },
+    "payment-gateway": {
+      title: "支付网关",
+      region: "us-east-1a",
+      health: "告警 (98.9%)",
+      team: "Payments Team",
+      language: "Node 18",
+      deploy: "20 分钟前",
+      version: "v5.1.0",
+    },
+  };
+
+  const graphViewMap = {
+    circular: "circular",
+    hierarchy: "hierarchy",
+    sla: "hierarchy",
+    dominator: "dominator",
+  };
+  const issueTypeParam = (params.get("issueType") || "").toLowerCase();
+  let currentGraphView = graphViewMap[issueTypeParam] || "hierarchy";
+
+  const graphContainer = document.getElementById("serviceGraphContainer");
+  const graphNodes = document.getElementById("serviceGraphNodes");
+  const graphEdgeBase = document.getElementById("serviceGraphEdgeBase");
+  const graphEdgeFlow = document.getElementById("serviceGraphEdgeFlow");
+  const graphEmpty = document.getElementById("serviceGraphEmpty");
+  const dependencyList = document.getElementById("dependencyList");
+  const priorityBadge = document.getElementById("servicePriorityBadge");
+  const priorityDot = document.getElementById("servicePriorityDot");
+  const priorityText = document.getElementById("servicePriorityText");
+  const healthEl = document.getElementById("serviceHealth");
+  const healthIcon = document.getElementById("serviceHealthIcon");
+  const healthText = document.getElementById("serviceHealthText");
+  let graphCache = null;
+
+  const statusMeta = {
+    healthy: {
+      dot: "bg-success",
+      shadow: "shadow-[0_0_8px_rgba(22,163,74,0.6)]",
+    },
+    warning: {
+      dot: "bg-warning",
+      shadow: "shadow-[0_0_8px_rgba(217,119,6,0.6)]",
+    },
+    danger: {
+      dot: "bg-danger",
+      shadow: "shadow-[0_0_8px_rgba(239,68,68,0.6)]",
+    },
+  };
+
+  const roleMeta = {
+    Gateway: {
+      label: "Gateway",
+      icon: "dns",
+      iconClass: "text-primary",
+      accent: "border-l-primary",
+    },
+    Service: {
+      label: "Service",
+      icon: "shopping_cart",
+      iconClass: "text-primary",
+      accent: "border-l-primary",
+    },
+    Storage: {
+      label: "Storage",
+      icon: "inventory_2",
+      iconClass: "text-success",
+      accent: "border-l-success",
+    },
+    Security: {
+      label: "Security",
+      icon: "lock",
+      iconClass: "text-text-secondary",
+      accent: "border-l-slate-400",
+    },
+    External: {
+      label: "External",
+      icon: "credit_card",
+      iconClass: "text-danger",
+      accent: "border-l-danger",
+    },
+  };
+
+  const resolveRole = (name) => {
+    const lower = String(name || "").toLowerCase();
+    if (lower.includes("payment-gateway") || lower.includes("external")) {
+      return "External";
+    }
+    if (lower.includes("gateway")) {
+      return "Gateway";
+    }
+    if (lower.includes("inventory") || lower.includes("storage") || lower.includes("db")) {
+      return "Storage";
+    }
+    if (lower.includes("auth") || lower.includes("security")) {
+      return "Security";
+    }
+    return "Service";
+  };
+
+  const getNodeById = (id) => {
+    if (!graphCache || !Array.isArray(graphCache.nodes)) return null;
+    return graphCache.nodes.find((node) => node.id === id) || null;
+  };
+
+  const resolveStatus = (node) => {
+    if (!node) {
+      return "healthy";
+    }
+    if (node && node.status) {
+      return node.status;
+    }
+    const priority = Number(node && node.priority);
+    if (priority === 0) return "danger";
+    if (priority === 1) return "warning";
+    return "healthy";
+  };
+
+  const showGraphEmpty = (show, message) => {
+    if (!graphEmpty) return;
+    graphEmpty.classList.toggle("hidden", !show);
+    graphEmpty.classList.toggle("flex", show);
+    if (message) {
+      const target = graphEmpty.querySelector("div");
+      if (target) target.textContent = message;
+    }
+  };
+
+  const serviceLevelLabel = (level, priorityValue) => {
+    if (level === "critical") return "严重";
+    if (level === "high") return "高";
+    if (level === "low") return "低";
+    if (priorityValue === null || typeof priorityValue === "undefined") return "未知";
+    return "标准";
+  };
+
+  const updatePriorityBadge = (node) => {
+    if (!priorityBadge || !priorityDot || !priorityText) return;
+    const status = resolveStatus(node);
+    const priorityValue =
+      node && typeof node.priority !== "undefined" && node.priority !== null
+        ? node.priority
+        : null;
+    const level =
+      node && node.service_level ? String(node.service_level).toLowerCase() : "";
+    const levelLabel = serviceLevelLabel(level, priorityValue);
+    const priorityLabel =
+      priorityValue === null ? "P?" : `P${priorityValue}`;
+    priorityText.textContent = `${levelLabel} ${priorityLabel}`;
+
+    const classMap = {
+      danger: ["bg-danger/10", "text-danger", "border-danger/20"],
+      warning: ["bg-warning/10", "text-warning", "border-warning/20"],
+      healthy: ["bg-success/10", "text-success", "border-success/20"],
+    };
+    const dotMap = {
+      danger: "bg-danger",
+      warning: "bg-warning",
+      healthy: "bg-success",
+    };
+    const allBadgeClasses = [
+      "bg-danger/10",
+      "text-danger",
+      "border-danger/20",
+      "bg-warning/10",
+      "text-warning",
+      "border-warning/20",
+      "bg-success/10",
+      "text-success",
+      "border-success/20",
+    ];
+    const allDotClasses = ["bg-danger", "bg-warning", "bg-success"];
+
+    priorityBadge.classList.remove(...allBadgeClasses);
+    priorityBadge.classList.add(...(classMap[status] || classMap.healthy));
+    priorityDot.classList.remove(...allDotClasses);
+    priorityDot.classList.add(dotMap[status] || dotMap.healthy);
+    priorityDot.classList.toggle("animate-pulse", status === "danger");
+  };
+
+  const updateHealthStatus = (node) => {
+    if (!healthEl || !healthIcon || !healthText) return;
+    const status = resolveStatus(node);
+    const healthMap = {
+      danger: { text: "严重", icon: "error", cls: "text-danger" },
+      warning: { text: "警告", icon: "warning", cls: "text-warning" },
+      healthy: { text: "健康", icon: "check_circle", cls: "text-success" },
+    };
+    const meta = healthMap[status] || healthMap.healthy;
+    healthText.textContent = meta.text;
+    healthIcon.textContent = meta.icon;
+    healthEl.classList.remove("text-danger", "text-warning", "text-success");
+    healthEl.classList.add(meta.cls);
+  };
+
+  const renderDependencyList = (serviceName) => {
+    if (!dependencyList) return;
+    if (!graphCache || !Array.isArray(graphCache.edges)) {
+      dependencyList.innerHTML =
+        '<div class="text-xs text-text-secondary">暂无依赖关系</div>';
+      return;
+    }
+    const upstream = [];
+    const downstream = [];
+    graphCache.edges.forEach((edge) => {
+      if (edge.target === serviceName) {
+        upstream.push(edge.source);
+      }
+      if (edge.source === serviceName) {
+        downstream.push(edge.target);
+      }
+    });
+
+    const renderItem = (id, direction) => {
+      const node = getNodeById(id);
+      const status = resolveStatus(node);
+      const riskLabel =
+        status === "danger" ? "高风险" : status === "warning" ? "警告" : "稳定";
+      const badgeClass =
+        status === "danger"
+          ? "bg-danger/10 text-danger"
+          : status === "warning"
+          ? "bg-warning/10 text-warning"
+          : "bg-success/10 text-success";
+      const arrowIcon = direction === "up" ? "arrow_upward" : "arrow_downward";
+      return `
+        <div class="flex items-center justify-between p-2.5 rounded-lg border border-transparent hover:bg-slate-50 hover:border-border transition-all group cursor-pointer" data-service="${escapeHtml(
+          id
+        )}">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-text-secondary text-[18px]">${arrowIcon}</span>
+            <span class="text-sm font-medium text-text-main">${escapeHtml(id)}</span>
+          </div>
+          <span class="text-[10px] font-bold ${badgeClass} px-2 py-1 rounded-full">${riskLabel}</span>
+        </div>
+      `;
+    };
+
+    const items = [
+      ...downstream.map((id) => renderItem(id, "down")),
+      ...upstream.map((id) => renderItem(id, "up")),
+    ];
+
+    dependencyList.innerHTML =
+      items.join("") ||
+      '<div class="text-xs text-text-secondary">暂无依赖关系</div>';
+  };
+
+  const computeLayout = (nodes, edges, width, height) => {
+    const ids = nodes.map((node) => node.id);
+    const adj = {};
+    const indegree = {};
+    ids.forEach((id) => {
+      adj[id] = [];
+      indegree[id] = 0;
+    });
+    edges.forEach((edge) => {
+      const source = edge.source;
+      const target = edge.target;
+      if (!adj[source]) adj[source] = [];
+      if (indegree[source] === undefined) indegree[source] = 0;
+      if (indegree[target] === undefined) indegree[target] = 0;
+      adj[source].push(target);
+      indegree[target] += 1;
+    });
+
+    let roots = ids.filter((id) => (indegree[id] || 0) === 0);
+    if (!roots.length && ids.length) {
+      roots = [ids[0]];
+    }
+
+    const level = {};
+    const queue = roots.slice();
+    roots.forEach((id) => {
+      level[id] = 0;
+    });
+    while (queue.length) {
+      const current = queue.shift();
+      const nextNodes = adj[current] || [];
+      nextNodes.forEach((next) => {
+        const nextLevel = level[current] + 1;
+        if (level[next] === undefined || level[next] < nextLevel) {
+          level[next] = nextLevel;
+          queue.push(next);
+        }
+      });
+    }
+    ids.forEach((id) => {
+      if (level[id] === undefined) {
+        level[id] = 0;
+      }
+    });
+
+    const maxLevel = Math.max(0, ...Object.values(level));
+    const groups = {};
+    ids.forEach((id) => {
+      const group = level[id];
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(id);
+    });
+
+    const padX = 140;
+    const padY = 140;
+    const usableWidth = Math.max(width - padX * 2, 1);
+    const usableHeight = Math.max(height - padY * 2, 1);
+    const levelCount = Math.max(maxLevel + 1, 1);
+    const positions = {};
+    for (let i = 0; i < levelCount; i += 1) {
+      const nodesInLevel = groups[i] || [];
+      const x =
+        levelCount === 1
+          ? width / 2
+          : padX + (usableWidth * i) / (levelCount - 1);
+      const spacing = usableHeight / (nodesInLevel.length + 1);
+      nodesInLevel.forEach((id, index) => {
+        positions[id] = {
+          x,
+          y: padY + spacing * (index + 1),
+        };
+      });
+    }
+    return positions;
+  };
+
+  const renderGraph = (data) => {
+    if (!graphContainer || !graphNodes || !graphEdgeBase || !graphEdgeFlow) return;
+    const nodes = Array.isArray(data && data.nodes) ? data.nodes : [];
+    const edges = Array.isArray(data && data.edges) ? data.edges : [];
+    graphNodes.innerHTML = "";
+    graphEdgeBase.innerHTML = "";
+    graphEdgeFlow.innerHTML = "";
+
+    if (!nodes.length) {
+      showGraphEmpty(true, data && data.message ? data.message : null);
+      return;
+    }
+    showGraphEmpty(false);
+
+    const rect = graphContainer.getBoundingClientRect();
+    const positions = computeLayout(nodes, edges, rect.width, rect.height);
+    const nodeStatus = {};
+    nodes.forEach((node) => {
+      nodeStatus[node.id] = resolveStatus(node);
+    });
+
+    const svgNs = "http://www.w3.org/2000/svg";
+    const createPath = (d, stroke, width, marker, className, dashArray) => {
+      const path = document.createElementNS(svgNs, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", stroke);
+      path.setAttribute("stroke-width", width);
+      if (marker) path.setAttribute("marker-end", marker);
+      if (className) path.setAttribute("class", className);
+      if (dashArray) path.setAttribute("stroke-dasharray", dashArray);
+      return path;
+    };
+
+    edges.forEach((edge) => {
+      const source = positions[edge.source];
+      const target = positions[edge.target];
+      if (!source || !target) return;
+      const dx = (target.x - source.x) * 0.5;
+      const pathD = `M ${source.x} ${source.y} C ${source.x + dx} ${source.y}, ${
+        target.x - dx
+      } ${target.y}, ${target.x} ${target.y}`;
+      const isDanger = nodeStatus[edge.target] === "danger";
+      const baseStroke = isDanger ? "#fee2e2" : "#e2e8f0";
+      const flowStroke = isDanger ? "#ef4444" : "#94a3b8";
+      const marker = isDanger ? "url(#arrowhead-danger)" : "url(#arrowhead)";
+      graphEdgeBase.appendChild(createPath(pathD, baseStroke, "2", marker));
+      graphEdgeFlow.appendChild(
+        createPath(pathD, flowStroke, "2", marker, "animate-flow", "4,8")
+      );
+    });
+
+    nodes.forEach((node) => {
+      const position = positions[node.id];
+      if (!position) return;
+      const role = resolveRole(node.id);
+      const meta = roleMeta[role] || roleMeta.Service;
+      const status = resolveStatus(node);
+      const statusStyle = statusMeta[status] || statusMeta.healthy;
+      const title = node.id;
+      const isPrimary = node.priority === 0 || node.id === currentService;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "absolute z-10 cursor-pointer node-card";
+      wrapper.style.left = `${position.x}px`;
+      wrapper.style.top = `${position.y}px`;
+      wrapper.style.transform = "translate(-50%, -50%)";
+      wrapper.setAttribute("data-service", node.id);
+
+      if (isPrimary) {
+        wrapper.innerHTML = `
+          <div class="relative">
+            <div class="absolute -inset-1 bg-primary/20 rounded-xl blur-md"></div>
+            <div class="flex items-center gap-3 bg-white pl-1 pr-4 py-2 rounded-lg shadow-xl border border-primary/20 ${meta.accent} border-l-4 w-56 relative overflow-hidden ring-2 ring-primary/10">
+              <div class="size-12 flex items-center justify-center rounded-md bg-primary text-white shadow-lg shadow-primary/30">
+                <span class="material-symbols-outlined text-[24px]">${meta.icon}</span>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-xs text-text-secondary font-medium uppercase tracking-wide">${meta.label}</span>
+                <span class="text-base font-bold text-text-main">${escapeHtml(title)}</span>
+              </div>
+              <div class="absolute top-2 right-2 flex items-center gap-1">
+                ${node.priority === 0 ? '<span class="text-[10px] font-bold text-danger bg-danger/10 px-1.5 rounded">P0</span>' : ""}
+                <div class="size-2 ${statusStyle.dot} rounded-full ${statusStyle.shadow} ${status === "danger" ? "animate-pulse" : ""}"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        wrapper.innerHTML = `
+          <div class="flex items-center gap-3 bg-white pl-1 pr-4 py-1 rounded-lg shadow-card border border-slate-100 ${meta.accent} border-l-4 w-48 relative overflow-hidden">
+            <div class="size-10 flex items-center justify-center rounded-md bg-slate-50 ${meta.iconClass}">
+              <span class="material-symbols-outlined text-[20px]">${meta.icon}</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-xs text-text-secondary font-medium uppercase tracking-wide">${meta.label}</span>
+              <span class="text-sm font-bold text-text-main">${escapeHtml(title)}</span>
+            </div>
+            <div class="absolute top-2 right-2 size-2 ${statusStyle.dot} rounded-full ${statusStyle.shadow}"></div>
+          </div>
+        `;
+      }
+
+      wrapper.addEventListener("click", () => {
+        setActiveService(node.id);
+      });
+      graphNodes.appendChild(wrapper);
+    });
+
+    if (currentService) {
+      highlightService(currentService);
+    }
+  };
+
+  const loadServiceGraph = async () => {
+    if (!graphContainer) return;
+    if (window.location.protocol === "file:") {
+      showGraphEmpty(true, "请通过服务访问 /ServiceAnalysisVisualization");
+      return;
+    }
+    try {
+      const url = `/api/service-graph?view=${encodeURIComponent(
+        currentGraphView || "hierarchy"
+      )}`;
+      const data = await jsonFetch(url);
+      graphCache = data;
+      requestAnimationFrame(() => renderGraph(data));
+      if (!currentService && data.nodes && data.nodes.length) {
+        setActiveService(data.nodes[0].id);
+      } else if (currentService) {
+        const node = getNodeById(currentService);
+        updatePriorityBadge(node);
+        updateHealthStatus(node);
+        renderDependencyList(currentService);
+      }
+    } catch (error) {
+      showGraphEmpty(true, "拓扑数据加载失败，请检查服务或数据源。");
+    }
+  };
+
+  window.addEventListener("resize", () => {
+    if (graphCache) {
+      renderGraph(graphCache);
+    }
+  });
+
+  if (dependencyList) {
+    dependencyList.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-service]");
+      if (target) {
+        setActiveService(target.getAttribute("data-service"));
+      }
+    });
+  }
+
+  const auditButton = document.getElementById("btnTriggerAudit");
+  const reportList = document.getElementById("reportList");
+  const reportStatus = document.getElementById("reportStatus");
+  const reportRefreshButton = document.getElementById("btnRefreshReports");
+  const prioritySelect = document.getElementById("prioritySelect");
+  const prioritySummary = document.getElementById("prioritySummary");
+  const setText = (el, text) => {
+    if (el) {
+      el.textContent = text || "";
+    }
+  };
+
+  const setHtml = (el, html) => {
+    if (el) {
+      el.innerHTML = html || "";
+    }
+  };
+
+  const setControlDisabled = (el, disabled) => {
+    if (!el) return;
+    el.disabled = disabled;
+    el.classList.toggle("opacity-70", disabled);
+    el.classList.toggle("cursor-not-allowed", disabled);
+  };
+
+  const escapeHtml = (value) => {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  };
+
+  async function jsonFetch(url, opts) {
+    const response = await fetch(url, opts || {});
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      const detail = text ? `: ${text}` : "";
+      const error = new Error(
+        `${response.status} ${response.statusText}${detail}`
+      );
+      error.status = response.status;
+      throw error;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return await response.json();
+    }
+    return await response.text();
+  }
+
+  function parseReportLine(line) {
+    if (!line) {
+      return null;
+    }
+    const match = String(line).match(
+      /^\[(.*?)\]\s+\[(.*?)\]\s+from\s+([^:]+):\s+(.*)$/
+    );
+    if (!match) {
+      return {
+        ts: "",
+        level: "INFO",
+        source: "Reporter",
+        message: String(line),
+      };
+    }
+    return {
+      ts: match[1],
+      level: match[2].toUpperCase(),
+      source: match[3],
+      message: match[4],
+    };
+  }
+
+  function severityMeta(level) {
+    const normalized = (level || "INFO").toUpperCase();
+    if (normalized === "ERROR") {
+      return { label: "严重", dot: "bg-danger", text: "text-danger" };
+    }
+    if (normalized === "WARNING") {
+      return { label: "警告", dot: "bg-warning", text: "text-warning" };
+    }
+    return { label: "提示", dot: "bg-success", text: "text-success" };
+  }
+
+  function renderReportList(reports) {
+    if (!reportList) return;
+    if (!reports.length) {
+      setHtml(reportList, '<div class="text-sm text-text-secondary">暂无审计记录</div>');
+      setText(reportStatus, "0 条记录");
+      return;
+    }
+    const items = reports.slice().reverse().slice(0, 6);
+    setText(reportStatus, `最近 ${items.length} 条`);
+    const html = items
+      .map((report) => {
+        const meta = severityMeta(report.level);
+        const msg = report.message || "";
+        const display = msg.length > 90 ? `${msg.slice(0, 90)}...` : msg;
+        return `
+          <div class="flex items-start gap-3">
+            <span class="mt-1 size-2.5 rounded-full ${meta.dot}"></span>
+            <div class="flex-1">
+              <div class="text-xs text-text-secondary font-mono">${escapeHtml(
+                report.ts || "刚刚"
+              )}</div>
+              <div class="text-sm font-bold ${meta.text}">${escapeHtml(
+                report.source
+              )}</div>
+              <div class="text-xs text-text-secondary mt-1">${escapeHtml(
+                display
+              )}</div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+    setHtml(reportList, html);
+  }
+
+  async function refreshReports() {
+    try {
+      const data = await jsonFetch("/api/reports");
+      const list = Array.isArray(data) ? data : [];
+      const parsed = list.map((line) => parseReportLine(line)).filter(Boolean);
+      renderReportList(parsed);
+    } catch (error) {
+      setText(
+        reportStatus,
+        error && error.message ? `日志加载失败: ${error.message}` : "日志加载失败"
+      );
+      setHtml(reportList, '<div class="text-sm text-text-secondary">无法加载审计日志</div>');
+    }
+  }
+
+  let currentService = null;
+  let priorityEnabled = true;
+
+  const priorityLabel = (value) => {
+    if (value === null || typeof value === "undefined") {
+      return "未配置";
+    }
+    return `P${value}`;
+  };
+
+  async function refreshPrioritySummary() {
+    if (!prioritySummary) return;
+    try {
+      const data = await jsonFetch("/api/priorities");
+      const entries = Object.entries(data || {}).sort((a, b) => {
+        const diff = Number(a[1]) - Number(b[1]);
+        return diff !== 0 ? diff : a[0].localeCompare(b[0]);
+      });
+      priorityEnabled = true;
+      setControlDisabled(prioritySelect, false);
+      if (!entries.length) {
+        setHtml(prioritySummary, '<div class="text-text-secondary">暂无优先级配置</div>');
+        return;
+      }
+      const items = entries.slice(0, 5).map(([service, value]) => {
+        return `<div>${escapeHtml(service)}: <span class="text-text-main font-semibold">${priorityLabel(
+          value
+        )}</span></div>`;
+      });
+      setHtml(prioritySummary, items.join(""));
+    } catch (error) {
+      priorityEnabled = false;
+      const message =
+        error && error.status === 404
+          ? "ServicePrioritySource 未启用"
+          : `优先级读取失败: ${error.message || "未知错误"}`;
+      setHtml(prioritySummary, `<div class="text-text-secondary">${escapeHtml(message)}</div>`);
+      setControlDisabled(prioritySelect, true);
+    }
+  }
+
+  async function loadPriorityForService(serviceName) {
+    if (!prioritySelect || !priorityEnabled || !serviceName) return;
+    try {
+      const value = await jsonFetch(
+        `/api/priorities/${encodeURIComponent(serviceName)}`
+      );
+      if (value === null || typeof value === "undefined") {
+        setText(prioritySummary, "当前服务尚未配置优先级");
+        return;
+      }
+      prioritySelect.value = String(value);
+      setText(prioritySummary, `当前服务优先级: ${priorityLabel(value)}`);
+    } catch (error) {
+      setText(
+        prioritySummary,
+        error && error.message ? `优先级查询失败: ${error.message}` : "优先级查询失败"
+      );
+    }
+  }
+
+  async function savePriority(serviceName, value) {
+    if (!priorityEnabled || !serviceName || !prioritySelect) return;
+    setText(prioritySummary, "保存中...");
+    try {
+      await jsonFetch(
+        `/api/priorities/${encodeURIComponent(serviceName)}/${encodeURIComponent(
+          value
+        )}`,
+        { method: "POST" }
+      );
+      setText(prioritySummary, `已更新为 ${priorityLabel(value)}`);
+      await refreshPrioritySummary();
+    } catch (error) {
+      setText(
+        prioritySummary,
+        error && error.message ? `保存失败: ${error.message}` : "保存失败"
+      );
+    }
+  }
+
+  const setParam = (key, value) => {
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    const query = params.toString();
+    const nextUrl = query
+      ? `${window.location.pathname}?${query}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", nextUrl);
+    preserveQueryLinks();
+  };
+
+  const preserveQueryLinks = () => {
+    document.querySelectorAll("[data-preserve-query]").forEach((link) => {
+      const href = link.getAttribute("href");
+      if (!href) return;
+      const url = new URL(href, base);
+      params.forEach((value, key) => {
+        if (!url.searchParams.has(key)) {
+          url.searchParams.set(key, value);
+        }
+      });
+      link.setAttribute("href", url.pathname + url.search);
+    });
+  };
+
+  const updateResourceLink = () => {
+    const resourceLink = document.querySelector("[data-resource-link]");
+    if (!resourceLink) return;
+    const url = new URL(resourceLink.getAttribute("href"), base);
+    params.forEach((value, key) => url.searchParams.set(key, value));
+    resourceLink.setAttribute("href", url.pathname + url.search);
+  };
+
+  const updateServicePanel = (serviceName) => {
+    const details = serviceDetails[serviceName] || {};
+    const title = document.querySelector("[data-service-title]");
+    if (title) {
+      title.textContent = serviceName;
+    }
+    const region = document.querySelector("[data-service-region]");
+    if (region) {
+      region.textContent = details.region || "unknown";
+    }
+    const health = document.querySelector("[data-service-health]");
+    if (health) {
+      updateHealthStatus(getNodeById(serviceName));
+    }
+    const team = document.querySelector("[data-service-team]");
+    if (team) {
+      team.textContent = details.team || "unknown";
+    }
+    const language = document.querySelector("[data-service-language]");
+    if (language) {
+      language.textContent = details.language || "unknown";
+    }
+    const deploy = document.querySelector("[data-service-deploy]");
+    if (deploy) {
+      deploy.textContent = details.deploy || "unknown";
+    }
+    const version = document.querySelector("[data-service-version]");
+    if (version) {
+      version.textContent = details.version || "unknown";
+    }
+  };
+
+  const highlightService = (serviceName) => {
+    document.querySelectorAll("[data-service]").forEach((node) => {
+      node.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+    });
+    const target = document.querySelector(
+      `[data-service="${escapeCss(serviceName)}"]`
+    );
+    if (target) {
+      target.classList.add("ring-2", "ring-primary", "ring-offset-2");
+    }
+  };
+
+  const setActiveService = (serviceName) => {
+    if (!serviceName) return;
+    currentService = serviceName;
+    highlightService(serviceName);
+    updateServicePanel(serviceName);
+    updatePriorityBadge(getNodeById(serviceName));
+    renderDependencyList(serviceName);
+    setParam("service", serviceName);
+    updateResourceLink();
+    loadPriorityForService(serviceName);
+  };
+
+  const issueType = params.get("issueType");
+  const timeRange = params.get("timeRange");
+  if (issueType) {
+    const mapped = issueMap[issueType.toLowerCase()] || issueType;
+    const radio = document.querySelector(
+      `input[name="analysis_layer"][value="${escapeCss(mapped)}"]`
+    );
+    if (radio) {
+      radio.checked = true;
+    }
+  }
+
+  if (timeRange) {
+    const label = document.querySelector("[data-time-range-label]");
+    if (label) {
+      label.textContent = timeRange;
+    }
+  }
+
+  const initialService = params.get("service");
+  if (initialService) {
+    setActiveService(initialService);
+  }
+
+  document.querySelectorAll("[data-service]").forEach((node) => {
+    node.addEventListener("click", () => {
+      const serviceName = node.getAttribute("data-service");
+      if (serviceName) {
+        setActiveService(serviceName);
+      }
+    });
+  });
+
+  document
+    .querySelectorAll('input[name="analysis_layer"]')
+    .forEach((radio) => {
+      radio.addEventListener("change", () => {
+        if (!radio.checked) return;
+        const mapped = reverseIssueMap[radio.value] || radio.value;
+        currentGraphView = graphViewMap[mapped] || "hierarchy";
+        setParam("issueType", mapped);
+        updateResourceLink();
+        loadServiceGraph();
+      });
+    });
+
+  if (window.location.protocol === "file:") {
+    setText(reportStatus, "请通过服务访问 /ServiceAnalysisVisualization");
+    setControlDisabled(auditButton, true);
+    setControlDisabled(prioritySelect, true);
+    setControlDisabled(reportRefreshButton, true);
+    loadServiceGraph();
+    return;
+  }
+
+  if (auditButton) {
+    auditButton.addEventListener("click", async () => {
+      const original = auditButton.innerHTML;
+      auditButton.disabled = true;
+      auditButton.classList.add("opacity-70", "cursor-not-allowed");
+      auditButton.innerHTML =
+        '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span><span>审计中...</span>';
+      try {
+        await jsonFetch("/api/audit", { method: "POST" });
+      } catch (error) {
+        auditButton.innerHTML =
+          '<span class="material-symbols-outlined text-[18px]">error</span><span>审计失败</span>';
+        console.error(error);
+      } finally {
+        Promise.allSettled([refreshReports(), refreshPrioritySummary()]);
+        loadServiceGraph();
+        setTimeout(() => {
+          auditButton.disabled = false;
+          auditButton.classList.remove("opacity-70", "cursor-not-allowed");
+          auditButton.innerHTML = original;
+        }, 800);
+      }
+    });
+  }
+
+  if (reportRefreshButton) {
+    reportRefreshButton.addEventListener("click", () => {
+      refreshReports();
+    });
+  }
+
+  if (prioritySelect) {
+    prioritySelect.addEventListener("change", () => {
+      if (!currentService) {
+        setText(prioritySummary, "请先选择一个服务");
+        return;
+      }
+      savePriority(currentService, prioritySelect.value);
+    });
+  }
+
+  preserveQueryLinks();
+  updateResourceLink();
+  loadServiceGraph();
+  Promise.allSettled([refreshReports(), refreshPrioritySummary()]);
+})();
+</script>
+</body></html>
+
