@@ -1,408 +1,469 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="zh-CN">
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>ArchAuditor Dashboard</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>ArchAuditor 控制面板</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#2563eb", // 科技蓝
+                        secondary: "#475569",
+                        success: "#10b981",
+                        warning: "#f59e0b",
+                        danger: "#ef4444",
+                        "background-light": "#f1f5f9", // Slate 100
+                        "background-dark": "#0f172a", // Slate 900
+                        "card-light": "#ffffff",
+                        "card-dark": "#1e293b", // Slate 800
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.375rem",
+                    },
+                },
+            },
+        };
+    </script>
     <style>
-        :root {
-            --primary: #2563eb;
-            /* 科技蓝 */
-            --primary-hover: #1d4ed8;
-            --bg-body: #f1f5f9;
-            /* 浅灰背景 */
-            --bg-card: #ffffff;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border: #e2e8f0;
-            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-            --radius: 12px;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            margin: 0;
-            padding: 24px;
-            line-height: 1.5;
+            font-family: 'Inter', sans-serif;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        /* Header */
-        header {
-            margin-bottom: 32px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
 
-        h1 {
-            margin: 0;
-            font-size: 2rem;
-            font-weight: 700;
-            color: #1e293b;
+        ::-webkit-scrollbar-track {
+            background: transparent;
         }
 
-        .nav-links {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .nav-links code {
-            background: #e2e8f0;
-            padding: 2px 6px;
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
             border-radius: 4px;
-            color: #334155;
         }
 
-        .nav-links a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s;
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
         }
 
-        .nav-links a:hover {
-            text-decoration: underline;
-        }
-
-        /* Layout */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-            gap: 24px;
-        }
-
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Cards */
-        .card {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 24px;
-            border: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .card-header h2 {
-            margin: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        /* Components */
-        .row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.9rem;
-            border: 1px solid var(--border);
-            background: white;
-            color: #475569;
-        }
-
-        button:hover {
-            background: #f8fafc;
-            border-color: #cbd5e1;
-            color: #334155;
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
-
-        /* Primary Button Style */
-        button.primary {
-            background: var(--primary);
-            color: white;
-            border: 1px solid var(--primary);
-        }
-
-        button.primary:hover {
-            background: var(--primary-hover);
-            border-color: var(--primary-hover);
-            color: white;
-        }
-
-        input[type="text"],
-        input[type="number"] {
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            outline: none;
-            transition: border 0.2s, box-shadow 0.2s;
-            font-size: 0.9rem;
-        }
-
-        input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        /* Terminal/Code Box */
-        pre {
-            font-family: "JetBrains Mono", Consolas, Monaco, monospace;
-            font-size: 0.85rem;
-            background: #1e293b;
-            /* Dark terminal */
-            color: #a5f3fc;
-            /* Light Cyan text */
-            padding: 16px;
-            border-radius: 8px;
-            overflow: auto;
-            max-height: 300px;
-            margin-top: 16px;
-            white-space: pre-wrap;
-            word-break: break-all;
-            border: 1px solid #334155;
-        }
-
-        /* Tags */
-        .tag {
-            font-size: 0.75rem;
-            padding: 4px 10px;
-            border-radius: 99px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .tag.default {
-            background: #f1f5f9;
-            color: #64748b;
-        }
-
-        .tag.active {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #bbf7d0;
-        }
-
-        /* Green */
-        .tag.blue {
-            background: #dbeafe;
-            color: #1e40af;
-            border: 1px solid #bfdbfe;
-        }
-
-        /* Blue */
-
-        /* Status Text */
-        .status {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            min-height: 20px;
-            font-style: italic;
-        }
-
-        /* Tables */
-        table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-top: 16px;
-            font-size: 0.9rem;
-        }
-
-        th,
-        td {
-            text-align: left;
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
-            font-weight: 600;
-            color: var(--text-muted);
-            background: #f8fafc;
-        }
-
-        th:first-child {
-            border-top-left-radius: 6px;
-        }
-
-        th:last-child {
-            border-top-right-radius: 6px;
-        }
-
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        /* Links list */
-        ul.vis-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        ul.vis-list li {
-            margin-bottom: 8px;
-        }
-
-        ul.vis-list a {
-            display: block;
-            padding: 8px 12px;
-            background: #f8fafc;
-            border-radius: 6px;
-            text-decoration: none;
-            color: var(--primary);
-            border: 1px solid transparent;
-            transition: all 0.2s;
-        }
-
-        ul.vis-list a:hover {
-            background: #eff6ff;
-            border-color: #bfdbfe;
-        }
-
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            user-select: none;
-        }
-
-        .muted-block {
-            color: var(--text-muted);
-            background: #f8fafc;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.9rem;
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
         }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <header>
-            <h1>ArchAuditor 控制面板</h1>
-            <div class="nav-links">
-                <span>API: <code>/api/*</code></span>
-                <span>Visualizations: <code>/vis/*</code></span>
-                <span>Swagger: <a href="/docs" target="_blank">/docs &rarr;</a></span>
+<body
+    class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 min-h-screen flex flex-col md:flex-row transition-colors duration-200">
+    <aside
+        class="w-full md:w-64 bg-card-light dark:bg-card-dark border-r border-slate-200 dark:border-slate-700 flex flex-col shadow-sm z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
+                <i class="fa-solid fa-layer-group"></i>
+                <span>ArchAuditor</span>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4">
+            <div class="px-4 mb-2">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 pl-2">平台</p>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-md bg-blue-50 dark:bg-blue-900/20 text-primary font-medium"
+                    href="#overview">
+                    <i class="fa-solid fa-chart-line w-5 text-center"></i>
+                    控制面板
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-200 transition-colors mt-1"
+                    href="/ControlCenterVisualization">
+                    <i class="fa-solid fa-list-check w-5 text-center"></i>
+                    控制中心
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-200 transition-colors mt-1"
+                    href="/ResourceAuditVisualization">
+                    <i class="fa-solid fa-file-contract w-5 text-center"></i>
+                    资源审计/告警
+                    <span id="navReportsCount"
+                        class="ml-auto bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-mono px-1.5 rounded">0</span>
+                </a>
+            </div>
+            <div class="px-4 mt-6 mb-2">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 pl-2">分析</p>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                    href="/ServiceAnalysisVisualization">
+                    <i class="fa-solid fa-network-wired w-5 text-center"></i>
+                    依赖拓扑
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-md text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-200 transition-colors mt-1"
+                    href="#vis">
+                    <i class="fa-solid fa-shield-halved w-5 text-center"></i>
+                    优先级与可视化
+                </a>
+            </div>
+            <div class="px-4 mt-6">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 pl-2">系统</p>
+                <div class="px-3 py-2 text-xs font-mono text-slate-500 dark:text-slate-400">
+                    <div class="flex justify-between mb-1">
+                        <span>API 状态</span>
+                        <span id="apiStatus" class="text-success">在线</span>
+                    </div>
+                    <div class="w-full bg-slate-200 dark:bg-slate-700 h-1 rounded overflow-hidden">
+                        <div id="apiStatusBar" class="bg-success h-full" style="width: 98%"></div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-3 px-2">
+                <div
+                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white font-bold text-xs">
+                    AD
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-sm font-medium">本地用户</span>
+                    <span class="text-xs text-slate-500">ArchAuditor</span>
+                </div>
+                <button class="ml-auto text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="设置（占位）">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+    <main class="flex-1 overflow-y-auto h-screen">
+        <header id="overview"
+            class="h-16 bg-card-light dark:bg-card-dark border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-6 sticky top-0 z-10">
+            <div class="flex items-center gap-4">
+                <h1 class="font-semibold text-lg">系统概览</h1>
+                <div class="hidden md:flex gap-2">
+                    <span
+                        class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-mono text-slate-500 dark:text-slate-400">API:
+                        /api/*</span>
+                    <a href="/docs"
+                        class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-mono text-slate-500 dark:text-slate-400 hover:underline">接口文档:
+                        /docs</a>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="relative">
+                    <i
+                        class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input id="searchService"
+                        class="pl-9 pr-4 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md focus:outline-none focus:ring-1 focus:ring-primary w-64 text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
+                        placeholder="搜索服务名（筛选优先级列表）..." type="text" />
+                </div>
+                <button
+                    class="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors relative"
+                    title="通知（占位）">
+                    <i class="fa-regular fa-bell"></i>
+                    <span
+                        class="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-white dark:border-slate-800"></span>
+                </button>
             </div>
         </header>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div
+                    class="bg-card-light dark:bg-card-dark p-5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">已标记服务数</p>
+                        <h2 id="statServices" class="text-2xl font-bold mt-1">0</h2>
+                        <p id="statServicesHint" class="text-xs text-success mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-arrow-up"></i> 来自优先级列表
+                        </p>
+                    </div>
+                    <div
+                        class="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-primary">
+                        <i class="fa-solid fa-server text-xl"></i>
+                    </div>
+                </div>
+                <div
+                    class="bg-card-light dark:bg-card-dark p-5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">当前违规（警告/错误）</p>
+                        <h2 id="statViolations" class="text-2xl font-bold mt-1 text-danger">0</h2>
+                        <p id="statViolationsHint" class="text-xs text-danger mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-triangle-exclamation"></i> 需要关注
+                        </p>
+                    </div>
+                    <div
+                        class="w-12 h-12 bg-red-50 dark:bg-red-900/30 rounded-full flex items-center justify-center text-danger">
+                        <i class="fa-solid fa-bug text-xl"></i>
+                    </div>
+                </div>
+                <div
+                    class="bg-card-light dark:bg-card-dark p-5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">审计健康评分（估算）</p>
+                        <h2 id="statHealth" class="text-2xl font-bold mt-1 text-success">100%</h2>
+                        <p id="statLastScan" class="text-xs text-slate-400 mt-1">上次扫描：-</p>
+                    </div>
+                    <div
+                        class="w-12 h-12 bg-green-50 dark:bg-green-900/30 rounded-full flex items-center justify-center text-success">
+                        <i class="fa-solid fa-heart-pulse text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="audit-log"
+                    class="lg:col-span-2 bg-card-light dark:bg-card-dark rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col">
+                    <div
+                        class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 rounded-t-lg">
+                        <div class="flex items-center gap-3">
+                            <h3 class="font-semibold text-slate-800 dark:text-slate-100">系统状态</h3>
+                            <span id="auditTag"
+                                class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">空闲</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs text-slate-500 flex items-center gap-1 select-none">
+                                <input id="chkAutoRefresh"
+                                    class="rounded border-slate-300 text-primary focus:ring-primary h-3 w-3"
+                                    type="checkbox" />
+                                自动刷新（5s）
+                            </label>
+                        </div>
+                    </div>
+                    <div class="p-4 flex-1 flex flex-col gap-4">
+                        <div class="flex flex-wrap gap-2">
+                            <button id="btnAudit"
+                                class="bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors shadow-sm">
+                                <i class="fa-solid fa-play"></i> 触发审计
+                            </button>
+                            <button id="btnRefreshAll"
+                                class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors">
+                                <i class="fa-solid fa-arrows-rotate"></i> 刷新全部
+                            </button>
+                            <button id="btnExportLogs"
+                                class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors ml-auto">
+                                <i class="fa-solid fa-download"></i> 导出日志
+                            </button>
+                        </div>
+                        <div id="auditStatus" class="text-xs text-slate-500 dark:text-slate-400"></div>
+                        <div
+                            class="bg-slate-950 rounded-md border border-slate-800 p-4 font-mono text-xs overflow-y-auto h-64 shadow-inner custom-scrollbar">
+                            <div
+                                class="text-slate-400 mb-2 border-b border-slate-800 pb-2 flex items-center justify-between gap-2">
+                                <div class="truncate">user@archauditor:~$ GET /api/reports</div>
+                                <div class="text-slate-500">共 <span id="reportsCount">0</span> 条</div>
+                            </div>
+                            <div id="reportsLog" class="space-y-1"></div>
+                            <div id="reportsEmpty" class="text-slate-400 mt-2 hidden">暂无报告，点击“触发审计”后查看。</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="priorities"
+                    class="lg:col-span-1 bg-card-light dark:bg-card-dark rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col">
+                    <div
+                        class="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 rounded-t-lg flex justify-between items-center">
+                        <h3 class="font-semibold text-slate-800 dark:text-slate-100">优先级分布</h3>
+                        {% if priority_enabled %}
+                        <span
+                            class="text-xs bg-success/10 text-success px-2 py-0.5 rounded border border-success/20">已启用</span>
+                        {% else %}
+                        <span
+                            class="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded border border-slate-300">未启用</span>
+                        {% endif %}
+                    </div>
+                    <div class="p-5 flex-1 flex flex-col gap-4">
+                        {% if priority_enabled %}
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-medium text-slate-600 dark:text-slate-300">高优先级（P0-P1）</span>
+                                    <span class="font-mono text-slate-500"><span id="prioHighPct">0</span>%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5">
+                                    <div id="prioHighBar" class="bg-danger h-2.5 rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-medium text-slate-600 dark:text-slate-300">中优先级（P2）</span>
+                                    <span class="font-mono text-slate-500"><span id="prioMedPct">0</span>%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5">
+                                    <div id="prioMedBar" class="bg-warning h-2.5 rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="font-medium text-slate-600 dark:text-slate-300">低优先级（P3+）</span>
+                                    <span class="font-mono text-slate-500"><span id="prioLowPct">0</span>%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5">
+                                    <div id="prioLowBar" class="bg-success h-2.5 rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
 
-        <div class="grid">
-            <section class="card">
-                <div class="card-header">
-                    <h2>Audit</h2>
-                    <span class="tag default" id="auditTag">idle</span>
-                </div>
-                <div class="row">
-                    <button id="btnAudit" class="primary">手动触发 Audit</button>
-                    <button id="btnRefreshAll">刷新全部</button>
-                </div>
-                <div class="status" id="auditStatus" style="margin-top: 12px;"></div>
-            </section>
+                        <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <div class="flex gap-2">
+                                <input id="priorityService"
+                                    class="flex-1 text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded"
+                                    placeholder="服务名称（如 ServiceA）" type="text" />
+                                <input id="priorityValue"
+                                    class="w-24 text-xs px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded"
+                                    placeholder="优先级" type="number" />
+                                <button id="btnSetPriority"
+                                    class="bg-primary hover:bg-blue-700 text-white text-xs px-3 py-2 rounded">保存</button>
+                            </div>
+                            <div id="priorityStatus" class="text-xs text-slate-500 mt-2"></div>
+                        </div>
 
-            <section class="card">
-                <div class="card-header">
-                    <h2>Reports</h2>
-                    <span class="tag blue" id="reportsTag">0</span>
+                        <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <div class="flex items-center justify-between">
+                                <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">优先级列表</div>
+                                <button id="btnRefreshPriorities"
+                                    class="text-xs text-primary font-medium hover:underline">刷新</button>
+                            </div>
+                            <div class="mt-2 max-h-44 overflow-auto border border-slate-200 dark:border-slate-700 rounded">
+                                <table id="prioritiesTable" class="min-w-full text-xs">
+                                    <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500">
+                                        <tr>
+                                            <th class="text-left font-semibold px-3 py-2">服务</th>
+                                            <th class="text-left font-semibold px-3 py-2">优先级</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                                </table>
+                            </div>
+                            <div id="prioritiesEmpty" class="text-xs text-slate-400 mt-2 hidden">暂无数据（你还没设置任何优先级）。</div>
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-slate-500">
+                            当前配置未启用 <span class="font-mono">ServicePrioritySource</span>，因此不会注册
+                            <span class="font-mono">/api/priorities*</span> 接口。
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="row">
-                    <button id="btnRefreshReports">刷新 Reports</button>
-                    <label class="checkbox-wrapper">
-                        <input id="chkAutoRefresh" type="checkbox" />
-                        <span style="color: var(--text-muted);">自动刷新 (5s)</span>
-                    </label>
-                </div>
-                <pre id="reportsBox" aria-label="reports"></pre>
-            </section>
+            </div>
 
-            <section class="card">
-                <div class="card-header">
-                    <h2>Service Priorities</h2>
-                    {% if priority_enabled %}
-                    <span class="tag active">enabled</span>
-                    {% else %}
-                    <span class="tag default">disabled</span>
-                    {% endif %}
+            <div id="vis"
+                class="bg-card-light dark:bg-card-dark rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                    <h3 class="font-semibold text-slate-800 dark:text-slate-100">可视化入口</h3>
+                    <button id="btnRefreshVis" class="text-xs text-primary font-medium hover:underline">刷新列表</button>
                 </div>
+                <div class="p-5">
+                    <div id="visList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                    <div id="visEmpty" class="text-sm text-slate-500 hidden">暂无可视化处理器（需要某个处理器的
+                        <span class="font-mono">has_visualization()</span> 返回 True）。</div>
+                </div>
+            </div>
 
-                {% if priority_enabled %}
-                <div class="row">
-                    <input id="priorityService" placeholder="Service Name (e.g. ServiceA)"
-                        style="flex: 1; min-width: 150px;" />
-                    <input id="priorityValue" placeholder="Priority (Int)" type="number" style="width: 100px;" />
-                    <button id="btnSetPriority" class="primary">保存</button>
-                    <button id="btnRefreshPriorities">刷新</button>
+            <div
+                class="bg-card-light dark:bg-card-dark rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                    <h3 class="font-semibold text-slate-800 dark:text-slate-100">架构发现（基于报告粗略统计）</h3>
+                    <div class="flex space-x-2">
+                        <a href="/ResourceAuditVisualization" class="text-xs text-primary font-medium hover:underline">查看告警 →</a>
+                    </div>
                 </div>
-                <div class="status" id="priorityStatus" style="margin-top: 12px;"></div>
-                <table aria-label="priorities" id="prioritiesTable">
-                    <thead>
-                        <tr>
-                            <th>Service</th>
-                            <th>Priority (Lower is Higher)</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-                {% else %}
-                <div class="muted-block">
-                    当前配置未启用 <code>ServicePrioritySource</code>，<br>因此不会注册 <code>/api/priorities*</code> 接口。
+                <div
+                    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-700">
+                    <div
+                        class="p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="p-2 bg-blue-100 dark:bg-blue-900/40 text-primary rounded-lg">
+                                <i class="fa-solid fa-cube"></i>
+                            </div>
+                            <span id="findingResourceTag"
+                                class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2 py-0.5 rounded-full">占位</span>
+                        </div>
+                        <h4 class="font-medium text-sm text-slate-700 dark:text-slate-200">资源规范</h4>
+                        <p class="text-xs text-slate-500 mt-1">K8s 资源配置规范检查（待接入/完善）。</p>
+                        <div id="findingResourceValue" class="mt-3 text-2xl font-bold text-slate-800 dark:text-white">-</div>
+                    </div>
+                    <div
+                        class="p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 rounded-lg">
+                                <i class="fa-solid fa-recycle"></i>
+                            </div>
+                            <span id="findingCycleTag"
+                                class="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-bold px-2 py-0.5 rounded-full">正常</span>
+                        </div>
+                        <h4 class="font-medium text-sm text-slate-700 dark:text-slate-200">循环依赖</h4>
+                        <p class="text-xs text-slate-500 mt-1">服务调用环路。</p>
+                        <div id="findingCycleValue" class="mt-3 text-2xl font-bold text-slate-800 dark:text-white">0</div>
+                    </div>
+                    <div
+                        class="p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="p-2 bg-purple-100 dark:bg-purple-900/40 text-purple-600 rounded-lg">
+                                <i class="fa-solid fa-diagram-project"></i>
+                            </div>
+                            <span id="findingPriorityTag"
+                                class="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-bold px-2 py-0.5 rounded-full">正常</span>
+                        </div>
+                        <h4 class="font-medium text-sm text-slate-700 dark:text-slate-200">依赖违规</h4>
+                        <p class="text-xs text-slate-500 mt-1">高优先级强依赖低优先级等。</p>
+                        <div id="findingPriorityValue" class="mt-3 text-2xl font-bold text-slate-800 dark:text-white">0</div>
+                    </div>
+                    <div
+                        class="p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="p-2 bg-pink-100 dark:bg-pink-900/40 text-pink-600 rounded-lg">
+                                <i class="fa-solid fa-bomb"></i>
+                            </div>
+                            <span id="findingSingleTag"
+                                class="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-bold px-2 py-0.5 rounded-full">安全</span>
+                        </div>
+                        <h4 class="font-medium text-sm text-slate-700 dark:text-slate-200">单点故障</h4>
+                        <p class="text-xs text-slate-500 mt-1">关键路径冗余检查。</p>
+                        <div id="findingSingleValue" class="mt-3 text-2xl font-bold text-slate-800 dark:text-white">0</div>
+                    </div>
                 </div>
-                {% endif %}
-            </section>
-
-            <section class="card">
-                <div class="card-header">
-                    <h2>Visualizations</h2>
-                    <span class="tag blue" id="visTag">0</span>
-                </div>
-                <div class="row" style="margin-bottom: 12px;">
-                    <button id="btnRefreshVis">刷新可视化列表</button>
-                </div>
-                <div id="visList"></div>
-            </section>
+            </div>
         </div>
-    </div>
-
+    </main>
     <script>
+        // Dark mode follow system preference (optional for viewing)
+        if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            document.documentElement.classList.add("dark");
+        }
+
+        const PRIORITY_ENABLED = {{ 'true' if priority_enabled else 'false' }};
+
         function $(id) { return document.getElementById(id); }
 
-        async function jsonFetch(url, opts) {
+        function setText(id, text) {
+            const el = $(id);
+            if (el) el.textContent = String(text);
+        }
+
+        function setApiStatus(ok) {
+            const status = $("apiStatus");
+            const bar = $("apiStatusBar");
+            if (!status || !bar) return;
+            if (ok) {
+                status.textContent = "在线";
+                status.className = "text-success";
+                bar.className = "bg-success h-full";
+                bar.style.width = "98%";
+            } else {
+                status.textContent = "离线";
+                status.className = "text-danger";
+                bar.className = "bg-danger h-full";
+                bar.style.width = "40%";
+            }
+        }
+
+        async function apiFetchJson(url, opts) {
             const res = await fetch(url, opts || {});
             if (!res.ok) {
                 const text = await res.text().catch(() => "");
@@ -413,17 +474,115 @@
             return await res.text();
         }
 
-        function setTag(id, text) {
-            const el = $(id);
-            el.textContent = String(text);
-            // Simple dynamic styling based on content
-            if (text === 'running') { el.className = 'tag active'; el.style.color = '#eab308'; el.style.background = '#fef9c3'; el.style.borderColor = '#fef08a'; }
-            else if (text === 'done') { el.className = 'tag active'; }
-            else if (text === 'error') { el.className = 'tag'; el.style.color = '#ef4444'; el.style.background = '#fee2e2'; el.style.borderColor = '#fecaca'; }
-            else { el.className = 'tag default'; el.removeAttribute('style'); }
+        function classifyReportLine(line) {
+            // Example: [2026-01-29 10:00:00] [ERROR] from X: ...
+            const m = String(line).match(/\]\s+\[(INFO|WARNING|WARN|ERROR)\]\s+from\s+([^:]+):/);
+            const raw = m ? m[1] : "INFO";
+            const type = raw === "WARN" ? "WARNING" : raw;
+            return { type, from: m ? m[2] : "" };
         }
 
-        function setStatus(id, text) { $(id).textContent = text || ""; }
+        function reportColorClass(type) {
+            if (type === "ERROR") return "text-red-400";
+            if (type === "WARNING") return "text-yellow-400";
+            return "text-green-400";
+        }
+
+        function nowTsFilename() {
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, "0");
+            return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        }
+
+        function relTime(fromDate) {
+            if (!fromDate) return "-";
+            const diff = Date.now() - fromDate.getTime();
+            if (diff < 0) return "-";
+            const s = Math.floor(diff / 1000);
+            if (s < 10) return "刚刚";
+            if (s < 60) return `${s} 秒前`;
+            const m = Math.floor(s / 60);
+            if (m < 60) return `${m} 分钟前`;
+            const h = Math.floor(m / 60);
+            if (h < 24) return `${h} 小时前`;
+            const d = Math.floor(h / 24);
+            return `${d} 天前`;
+        }
+
+        let lastAuditAt = null;
+        let cachedReports = [];
+        let cachedPriorities = {};
+
+        function updateStats() {
+            const reports = cachedReports || [];
+            const priorities = cachedPriorities || {};
+
+            const serviceCount = Object.keys(priorities).length;
+            setText("statServices", serviceCount);
+            setText("statServicesHint", serviceCount ? "来自优先级列表" : "暂无优先级数据");
+
+            let violations = 0;
+            let errors = 0;
+            let warnings = 0;
+            for (const line of reports) {
+                const c = classifyReportLine(line);
+                if (c.type === "ERROR") { violations++; errors++; }
+                else if (c.type === "WARNING") { violations++; warnings++; }
+            }
+            setText("statViolations", violations);
+            setText("statViolationsHint", violations ? "需要关注" : "暂无违规");
+
+            // Simple health score estimation (can be replaced by backend metric later).
+            const penalty = Math.min(100, errors * 20 + warnings * 10);
+            const score = Math.max(0, 100 - penalty);
+            setText("statHealth", `${score}%`);
+            setText("statLastScan", `上次扫描：${relTime(lastAuditAt)}`);
+
+            // Findings (counts based on existing analyzers)
+            const cycleCount = reports.filter(l => l.includes("from CircularDependencyAnalyzer") && l.includes("[ERROR]")).length;
+            const priorityCount = reports.filter(l => l.includes("from PriorityCheckAnalyzer") && (l.includes("[WARNING]") || l.includes("[WARN]"))).length;
+            const singleCount = reports.filter(l => l.includes("from SinglePointAnalyzer") && l.includes("[ERROR]")).length;
+
+            setText("findingCycleValue", cycleCount);
+            setText("findingPriorityValue", priorityCount);
+            setText("findingSingleValue", singleCount);
+
+            const setFindingTag = (id, count, okText, badText) => {
+                const el = $(id);
+                if (!el) return;
+                if (!count) {
+                    el.textContent = okText;
+                    el.className = "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-bold px-2 py-0.5 rounded-full";
+                } else {
+                    el.textContent = badText;
+                    el.className = "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-xs font-bold px-2 py-0.5 rounded-full";
+                }
+            };
+            setFindingTag("findingCycleTag", cycleCount, "正常", `${cycleCount} 个`);
+            setFindingTag("findingPriorityTag", priorityCount, "正常", `${priorityCount} 个`);
+            setFindingTag("findingSingleTag", singleCount, "安全", `${singleCount} 个`);
+
+            // Priority distribution
+            if (PRIORITY_ENABLED) {
+                const vals = Object.values(priorities).map(v => Number(v)).filter(v => Number.isFinite(v));
+                const total = vals.length || 0;
+                const high = vals.filter(v => v <= 1).length;
+                const med = vals.filter(v => v === 2).length;
+                const low = vals.filter(v => v >= 3).length;
+
+                const pct = (x) => total ? Math.round((x / total) * 100) : 0;
+                const highPct = pct(high), medPct = pct(med), lowPct = pct(low);
+
+                setText("prioHighPct", highPct);
+                setText("prioMedPct", medPct);
+                setText("prioLowPct", lowPct);
+
+                const hb = $("prioHighBar"), mb = $("prioMedBar"), lb = $("prioLowBar");
+                if (hb) hb.style.width = `${highPct}%`;
+                if (mb) mb.style.width = `${medPct}%`;
+                if (lb) lb.style.width = `${lowPct}%`;
+            }
+        }
 
         async function refreshReports() {
             const reports = await jsonFetch("/api/reports");
@@ -434,105 +593,176 @@
         }
 
         async function refreshVis() {
-            const items = await jsonFetch("/vis/");
+            const items = await apiFetchJson("/vis/");
             const list = Array.isArray(items) ? items : [];
-            $("visTag").textContent = list.length;
-            const html = list.length
-                ? `<ul class="vis-list">${list.map(n => `<li><a href="/vis/${encodeURIComponent(n)}">📊 ${n}</a></li>`).join("")}</ul>`
-                : `<div class="muted-block">暂无可视化 Processor<br><small>需要某个 Processor 的 <code>has_visualization()</code> 返回 True</small></div>`;
-            $("visList").innerHTML = html;
-        }
 
-        async function refreshPriorities() {
-            const data = await jsonFetch("/api/priorities");
-            const entries = Object.entries(data || {}).sort((a, b) => a[0].localeCompare(b[0]));
-            const tbody = $("prioritiesTable").querySelector("tbody");
-            if (entries.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color: #94a3b8;">No priorities set</td></tr>`;
-            } else {
-                tbody.innerHTML = entries.map(([svc, pr]) => `<tr><td>${svc}</td><td>${pr}</td></tr>`).join("");
+            const box = $("visList");
+            const empty = $("visEmpty");
+            if (!box || !empty) return;
+
+            box.innerHTML = "";
+            if (!list.length) {
+                empty.classList.remove("hidden");
+                return;
+            }
+            empty.classList.add("hidden");
+
+            for (const name of list) {
+                const a = document.createElement("a");
+                a.href = `/vis/${encodeURIComponent(name)}`;
+                a.className = "flex items-center justify-between gap-3 p-3 rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors";
+                a.innerHTML = `<div class=\"flex items-center gap-2\"><i class=\"fa-solid fa-chart-simple text-primary\"></i><span class=\"font-mono text-sm\">${name}</span></div><i class=\"fa-solid fa-arrow-right text-slate-400\"></i>`;
+                box.appendChild(a);
             }
         }
 
-        async function refreshAll() {
-            // Add a visual indicator that we are refreshing (optional, simplistic)
-            const btn = $('btnRefreshAll');
-            const origText = btn.textContent;
-            btn.textContent = "Refreshing...";
-            btn.disabled = true;
+        async function refreshPriorities() {
+            if (!PRIORITY_ENABLED) return;
+            const data = await apiFetchJson("/api/priorities");
+            cachedPriorities = data && typeof data === "object" ? data : {};
 
-            await Promise.allSettled([
-                refreshReports(),
-                refreshVis(),
-                {% if priority_enabled %}
-        refreshPriorities()
-        {% else %}
-        Promise.resolve()
-        {% endif %}
-        ]);
+            const tbody = $("prioritiesTable")?.querySelector("tbody");
+            const empty = $("prioritiesEmpty");
+            if (!tbody) return;
 
-        btn.textContent = origText;
-        btn.disabled = false;
-      }
+            const entries = Object.entries(cachedPriorities).sort((a, b) => a[0].localeCompare(b[0]));
+            tbody.innerHTML = "";
+
+            if (!entries.length) {
+                if (empty) empty.classList.remove("hidden");
+            } else {
+                if (empty) empty.classList.add("hidden");
+                for (const [svc, pr] of entries) {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `<td class=\"px-3 py-2 font-mono\">${svc}</td><td class=\"px-3 py-2 font-mono\">${pr}</td>`;
+                    tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer";
+                    tr.addEventListener("click", () => {
+                        const svcInput = $("priorityService");
+                        const prInput = $("priorityValue");
+                        if (svcInput) svcInput.value = svc;
+                        if (prInput) prInput.value = pr;
+                    });
+                    tbody.appendChild(tr);
+                }
+            }
+        }
+
+        function filterPrioritiesTable() {
+            const q = ($("searchService")?.value || "").trim().toLowerCase();
+            const tbody = $("prioritiesTable")?.querySelector("tbody");
+            if (!tbody) return;
+            for (const tr of tbody.querySelectorAll("tr")) {
+                const svc = tr.querySelector("td")?.textContent || "";
+                tr.style.display = !q || svc.toLowerCase().includes(q) ? "" : "none";
+            }
+        }
 
         async function triggerAudit() {
-            setTag("auditTag", "running");
-            setStatus("auditStatus", "Running audit...");
+            const tag = $("auditTag");
+            const status = $("auditStatus");
+            if (tag) tag.textContent = "运行中";
+            if (status) status.textContent = "正在执行审计...";
             try {
-                await jsonFetch("/api/audit", { method: "POST" });
-                setTag("auditTag", "done");
-                setStatus("auditStatus", "Audit completed.");
+                await apiFetchJson("/api/audit", { method: "POST" });
+                lastAuditAt = new Date();
+                if (tag) tag.textContent = "完成";
+                if (status) status.textContent = "审计已完成。";
             } catch (e) {
-                setTag("auditTag", "error");
-                setStatus("auditStatus", `Audit failed: ${e.message}`);
-            } finally {
-                await refreshAll();
+                if (tag) tag.textContent = "错误";
+                if (status) status.textContent = `审计失败：${e.message}`;
+                throw e;
             }
         }
 
         async function setPriority() {
-            const svc = $("priorityService").value.trim();
-            const pr = $("priorityValue").value.trim();
+            if (!PRIORITY_ENABLED) return;
+            const svc = ($("priorityService")?.value || "").trim();
+            const pr = ($("priorityValue")?.value || "").trim();
+            const status = $("priorityStatus");
             if (!svc || pr === "") {
-                setStatus("priorityStatus", "Please provide both service and priority.");
+                if (status) status.textContent = "请填写服务名称和优先级。";
                 return;
             }
-            setStatus("priorityStatus", "Saving...");
+            if (status) status.textContent = "正在保存...";
             try {
-                await jsonFetch(`/api/priorities/${encodeURIComponent(svc)}/${encodeURIComponent(pr)}`, { method: "POST" });
-                setStatus("priorityStatus", "Saved.");
+                await apiFetchJson(`/api/priorities/${encodeURIComponent(svc)}/${encodeURIComponent(pr)}`, { method: "POST" });
+                if (status) status.textContent = "已保存。";
                 await refreshPriorities();
-                // Clear inputs for better UX
-                $("priorityService").value = "";
-                $("priorityValue").value = "";
+                filterPrioritiesTable();
             } catch (e) {
-                setStatus("priorityStatus", `Save failed: ${e.message}`);
+                if (status) status.textContent = `保存失败：${e.message}`;
+            } finally {
+                updateStats();
             }
         }
 
-        $("btnAudit").addEventListener("click", () => triggerAudit());
-        $("btnRefreshAll").addEventListener("click", () => refreshAll());
-        $("btnRefreshReports").addEventListener("click", () => refreshReports().catch(e => setStatus("auditStatus", e.message)));
-        $("btnRefreshVis").addEventListener("click", () => refreshVis().catch(e => setStatus("auditStatus", e.message)));
+        function exportLogs() {
+            const lines = Array.isArray(cachedReports) ? cachedReports.slice() : [];
+            const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `archauditor-reports-${nowTsFilename()}.log`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(a.href);
+        }
 
-        {% if priority_enabled %}
-        $("btnSetPriority").addEventListener("click", () => setPriority());
-        $("btnRefreshPriorities").addEventListener("click", () => refreshPriorities().catch(e => setStatus("priorityStatus", e.message)));
-        {% endif %}
+        async function refreshAll() {
+            const btn = $("btnRefreshAll");
+            const orig = btn ? btn.textContent : "";
+            if (btn) { btn.textContent = "刷新中..."; btn.disabled = true; }
+            try {
+                await Promise.allSettled([
+                    refreshReports(),
+                    refreshVis(),
+                    PRIORITY_ENABLED ? refreshPriorities() : Promise.resolve(),
+                ]);
+                setApiStatus(true);
+            } catch (e) {
+                setApiStatus(false);
+            } finally {
+                if (btn) { btn.textContent = orig; btn.disabled = false; }
+                updateStats();
+            }
+        }
+
+        // Wire events
+        $("btnAudit")?.addEventListener("click", async () => {
+            try {
+                await triggerAudit();
+            } finally {
+                await refreshAll();
+            }
+        });
+        $("btnRefreshAll")?.addEventListener("click", () => refreshAll());
+        $("btnExportLogs")?.addEventListener("click", () => exportLogs());
+        $("btnRefreshVis")?.addEventListener("click", () => refreshVis().then(updateStats).catch(() => setApiStatus(false)));
+        $("searchService")?.addEventListener("input", () => filterPrioritiesTable());
+
+        if (PRIORITY_ENABLED) {
+            $("btnSetPriority")?.addEventListener("click", () => setPriority());
+            $("btnRefreshPriorities")?.addEventListener("click", () => refreshPriorities().then(() => { filterPrioritiesTable(); updateStats(); }));
+            $("priorityService")?.addEventListener("keydown", (e) => { if (e.key === "Enter") setPriority(); });
+            $("priorityValue")?.addEventListener("keydown", (e) => { if (e.key === "Enter") setPriority(); });
+        }
 
         let timer = null;
-        $("chkAutoRefresh").addEventListener("change", (ev) => {
+        $("chkAutoRefresh")?.addEventListener("change", (ev) => {
             if (ev.target.checked) {
-                refreshReports(); // trigger once immediately
-                timer = setInterval(() => refreshReports().catch(() => { }), 5000);
+                refreshAll();
+                timer = setInterval(() => refreshReports().then(updateStats).catch(() => setApiStatus(false)), 5000);
             } else if (timer) {
                 clearInterval(timer);
                 timer = null;
             }
         });
 
-        refreshAll().catch(() => { });
+        // Initial load
+        refreshAll();
     </script>
+
 </body>
 
 </html>
+
