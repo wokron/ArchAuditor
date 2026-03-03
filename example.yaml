@@ -2,6 +2,9 @@ processors:
   ServiceGraphSource:
     type: Jaeger
     jaeger_url: http://localhost:8080/jaeger/ui
+  PrometheusMetricsSource:
+    type: Prometheus
+    prometheus_url: http://localhost:9090
   CircularDependencyAnalyzer: {}
   ServicePrioritySource:
     type: InMemory
@@ -13,3 +16,4 @@ processors:
   #   namespaces:
   #     - default
   #     - kube-system
+  SinglePointAnalyzer: {}

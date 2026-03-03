@@ -4,12 +4,16 @@ import html as html_lib
 import json
 import math
 import time
-
 import networkx as nx
 import requests
 from arch_auditor.reporter import ReportMessage, ReportType
 from fastapi import Request
 from fastapi.responses import HTMLResponse
+import requests
+from arch_auditor.reporter import ReportMessage, ReportType
+from fastapi.responses import HTMLResponse
+import time
+
 
 class ServiceGraphSource(Processor):
     def __init__(self, context):
@@ -69,7 +73,7 @@ class ServiceGraphSource(Processor):
                 for dep in dependencies["data"]:
                     parent = dep.get("parent")
                     child = dep.get("child")
-                    if parent and child:
+                    if parent and child and parent != child:
                         edges.append((parent, child))
 
             # Update graph structure
