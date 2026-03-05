@@ -25,7 +25,7 @@ class CircularDependencyAnalyzer(Processor):
                 ReportMessage(
                     report_from=self.name(),
                     report_type=ReportType.ERROR,
-                    message=f"Circular dependency detected: {' -> '.join(cycle)}",
+                    message=f"Circular dependency detected: {' -> '.join(cycle + [cycle[0]])}",
                 )
             )
 

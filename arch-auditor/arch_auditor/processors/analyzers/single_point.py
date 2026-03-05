@@ -71,7 +71,7 @@ class SinglePointAnalyzer(Processor):
                 continue
             precentage = (score / root_criticality) * 100 if root_criticality > 0 else 0
             if (
-                precentage > 50
+                precentage > 20
             ):  # Arbitrary threshold for criticality # TODO: Make configurable
                 self.context.reporter.report(
                     ReportMessage(
@@ -108,16 +108,7 @@ class SinglePointAnalyzer(Processor):
     def _get_score(self, node) -> float:
         # Score is the avg of the node's qps
         node_data = self.context.system_state.graph.nodes[node]
-        timeseries = node_data.get("throughput", [])
-        if not timeseries or len(timeseries) == 0:
-            return 0.0
-        total = 0.0
-        count = 0
-        for ts, value in timeseries:
-            if value is not None:
-                total += value
-                count += 1
-        return total / count if count > 0 else 0.0
+        return node_data.get("call_count", 0)
 
     @staticmethod
     def has_visualization() -> bool:

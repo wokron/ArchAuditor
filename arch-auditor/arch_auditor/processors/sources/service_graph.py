@@ -59,16 +59,21 @@ class ServiceGraphSource(Processor):
 
             # Jaeger dependencies API format:
             # {"data": [{"parent": "service1", "child": "service2", "callCount": 123}, ...]}
+            callCounts = {}
             if "data" in dependencies:
                 for dep in dependencies["data"]:
                     parent = dep.get("parent")
                     child = dep.get("child")
+                    call_count = dep.get("callCount", 1)
                     if parent and child and parent != child:
                         edges.append((parent, child))
+                        callCounts[child] = callCounts.get(child, 0) + call_count
 
             # Update graph structure
             if edges:
                 self.context.system_state.graph.add_edges_from(edges)
+                for node, count in callCounts.items():
+                    self.context.system_state.graph.nodes[node]["call_count"] = count
 
         except requests.exceptions.RequestException as e:
             self.context.reporter.report(
