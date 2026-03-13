@@ -153,6 +153,11 @@ class ArchAuditService:
             )
 
     def trigger_audit(self):
+        # 先清理上一次的审计状态，防止数据累加
+        self.reporter.messages.clear()
+        self.arch_auditor.system_state.graph.clear()
+        self.arch_auditor.system_state.extra_attrs.clear()
+        
         self.arch_auditor.invoke()
 
     def list_priorities(self):

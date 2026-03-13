@@ -6,14 +6,17 @@ processors:
     type: Prometheus
     prometheus_url: http://localhost:9090
   CircularDependencyAnalyzer: {}
+  PriorityCheckAnalyzer: {}
+  ServiceDependencySource:
+    type: Mock
   ServicePrioritySource:
     type: InMemory
-  # K8sConfigSource:
-  #   namespaces:
-  #     - default
-  #     - kube-system
-  # K8sConfigAnalyzer:
-  #   namespaces:
-  #     - default
-  #     - kube-system
+  K8sConfigSource:
+    namespaces:
+      - default
+      - kube-system
+  K8sConfigAnalyzer:
+    namespaces:
+      - default
+      - kube-system
   SinglePointAnalyzer: {}

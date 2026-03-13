@@ -585,7 +585,10 @@
         }
 
         async function refreshReports() {
-            const reports = await jsonFetch("/api/reports");
+            //修改方法：jsonFetch->apiFetch
+            const reports = await apiFetchJson("/api/reports");
+            //新增：拉取后端报告后存到cachedReports
+            cachedReports = Array.isArray(reports) ? reports : [];
             const count = Array.isArray(reports) ? reports.length : "?";
             $("reportsTag").textContent = count; // Keep the number but don't reset class logic excessively
             const lines = Array.isArray(reports) ? reports.slice().reverse() : [String(reports)];
