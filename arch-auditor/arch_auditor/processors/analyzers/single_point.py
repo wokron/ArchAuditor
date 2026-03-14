@@ -71,7 +71,7 @@ class SinglePointAnalyzer(Processor):
                 continue
             precentage = (score / root_criticality) * 100 if root_criticality > 0 else 0
             if (
-                precentage > 20
+                precentage > 10
             ):  # Arbitrary threshold for criticality # TODO: Make configurable
                 self.context.reporter.report(
                     ReportMessage(
