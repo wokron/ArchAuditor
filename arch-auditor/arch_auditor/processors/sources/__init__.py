@@ -4,3 +4,4 @@ from .service_dependency import ServiceDependencySource
 from .single_root_dag import SingleRootDAGSource
 from .k8s_config import K8sConfigSource
 from .prometheus_metrics import PrometheusMetricsSource
+from .docker_config import DockerConfigSource
