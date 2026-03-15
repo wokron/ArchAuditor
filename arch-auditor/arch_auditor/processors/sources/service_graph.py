@@ -3,7 +3,10 @@ from abc import ABC, abstractmethod
 import requests
 from arch_auditor.reporter import ReportMessage, ReportType
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
 import time
+import json
 
 class ServiceGraphSource(Processor):
     def __init__(self, context):
@@ -97,12 +100,70 @@ class ServiceGraphSource(Processor):
         return True
 
     def visualize(self):
-        # TODO: Implement actual visualization logic
-        graph_text = str(self.context.system_state.graph)
-        html_content = f"""<html>
-        <body>
-            <h1>Service Graph</h1>
-            <pre>{graph_text}</pre>
-        </body>
-        </html>"""
-        return HTMLResponse(content=html_content)
+        # Get templates directory
+        templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
+        templates = Jinja2Templates(directory=str(templates_dir))
+        
+        # Convert NetworkX graph to G6 format
+        G = self.context.system_state.graph
+        
+        nodes = []
+        edges = []
+        
+        # Create nodes
+        for node in G.nodes():
+            node_data = {
+                "id": str(node),
+                "label": str(node),
+            }
+            
+            # Add node attributes for styling
+            node_attrs = G.nodes[node]
+            if "priority" in node_attrs:
+                priority = node_attrs["priority"]
+                # Color nodes by priority (lower priority = more important = darker blue)
+                if priority <= 1:
+                    node_data["style"] = {"fill": "#1e40af"}  # Dark blue
+                elif priority <= 3:
+                    node_data["style"] = {"fill": "#3b82f6"}  # Medium blue
+                else:
+                    node_data["style"] = {"fill": "#93c5fd"}  # Light blue
+            
+            nodes.append(node_data)
+        
+        # Create edges
+        for source, target in G.edges():
+            edge_data = {
+                "source": str(source),
+                "target": str(target),
+            }
+            
+            # Add edge attributes
+            edge_attrs = G.edges[source, target]
+            if "call_count" in edge_attrs:
+                edge_data["label"] = f"calls: {edge_attrs['call_count']}"
+            
+            edges.append(edge_data)
+        
+        graph_data = {
+            "nodes": nodes,
+            "edges": edges,
+        }
+        
+        # Prepare legend
+        legend = [
+            {"color": "#1e40af", "label": "高优先级服务 (priority ≤ 1)"},
+            {"color": "#3b82f6", "label": "中优先级服务 (priority 2-3)"},
+            {"color": "#93c5fd", "label": "低优先级服务 (priority > 3)"},
+        ]
+        
+        return templates.TemplateResponse(
+            "graph_visualization.html",
+            {
+                "request": {},  # Empty request object for compatibility
+                "title": "服务依赖图",
+                "description": "展示系统中各服务之间的依赖关系。节点代表服务，边代表调用关系。",
+                "graph_data": json.dumps(graph_data),
+                "legend": legend,
+            },
+        )
