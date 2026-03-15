@@ -1,7 +1,10 @@
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
 from typing import Any
+from collections import defaultdict
 
 
 class K8sConfigAnalyzer(Processor):
@@ -16,6 +19,7 @@ class K8sConfigAnalyzer(Processor):
     def init(self, config) -> bool:
         self.analyzer_config = config or {}
         self.issues: list[dict[str, Any]] = []
+        self.issues_by_resource: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self.namespaces = self.analyzer_config.get(
             "namespaces", [self.analyzer_config.get("namespace", "default")]
         )
@@ -25,6 +29,7 @@ class K8sConfigAnalyzer(Processor):
         k8s_configs = self.context.system_state.extra_attrs.get("k8s_configs", {})
 
         self.issues = []
+        self.issues_by_resource = defaultdict(list)
 
         for dep in k8s_configs.get("deployments", []):
             self._check_security_context("deployment", dep)
@@ -202,28 +207,84 @@ class K8sConfigAnalyzer(Processor):
             )
         )
 
-        self.issues.append(
-            {
-                "severity": severity,
-                "type": issue_type,
-                "message": msg,
-                "resource": resource,
-            }
-        )
+        issue_data = {
+            "severity": severity,
+            "type": issue_type,
+            "message": msg,
+            "resource": resource,
+        }
+        self.issues.append(issue_data)
+        self.issues_by_resource[resource].append(issue_data)
 
     @staticmethod
     def has_visualization() -> bool:
         return True
 
     def visualize(self):
-        # TODO: Implement actual visualization logic
-        items = []
-        for issue in self.issues:
-            items.append(
-                f"{issue['severity']}: [{issue['type']}] {issue['message']} (Resource: {issue['resource']})"
-            )
-        html = "<html><body><ul>"
-        for item in items:
-            html += f"<li>{item}</li>"
-        html += "</ul></body></html>"
-        return HTMLResponse(content=html)
+        # Get templates directory
+        templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
+        templates = Jinja2Templates(directory=str(templates_dir))
+        
+        k8s_configs = self.context.system_state.extra_attrs.get("k8s_configs", {})
+        
+        # Build resource list with issues
+        resources = []
+        all_resources = set()
+        
+        # Add all deployments and pods as resources
+        for dep in k8s_configs.get("deployments", []):
+            name = dep.get("name", "unknown")
+            ns = dep.get("namespace", "default")
+            if ns in self.namespaces:
+                resource_name = f"deployment/{ns}/{name}"
+                all_resources.add(resource_name)
+        
+        for pod in k8s_configs.get("pods", []):
+            name = pod.get("name", "unknown")
+            ns = pod.get("namespace", "default")
+            if ns in self.namespaces:
+                resource_name = f"pod/{ns}/{name}"
+                all_resources.add(resource_name)
+        
+        for resource_name in sorted(all_resources):
+            issues = self.issues_by_resource.get(resource_name, [])
+            
+            # Determine severity
+            has_error = any(i["severity"] == "ERROR" for i in issues)
+            has_warning = any(i["severity"] == "WARNING" for i in issues)
+            
+            if has_error:
+                severity = "error"
+            elif has_warning:
+                severity = "warning"
+            else:
+                severity = "passed"
+            
+            resources.append({
+                "name": resource_name,
+                "severity": severity,
+                "issue_count": len(issues),
+                "issues": issues,
+            })
+        
+        # Calculate summary
+        total_errors = sum(1 for i in self.issues if i["severity"] == "ERROR")
+        total_warnings = sum(1 for i in self.issues if i["severity"] == "WARNING")
+        total_passed = len([r for r in resources if r["severity"] == "passed"])
+        
+        summary = {
+            "total_resources": len(resources),
+            "total_errors": total_errors,
+            "total_warnings": total_warnings,
+            "total_passed": total_passed,
+        }
+        
+        return templates.TemplateResponse(
+            "config_issues_visualization.html",
+            {
+                "request": {},
+                "title": "Kubernetes 配置安全分析",
+                "summary": summary,
+                "resources": resources,
+            },
+        )
