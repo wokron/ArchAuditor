@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{{ title }} - ArchAuditor</title>
+    <script src="https://gw.alipayobjects.com/os/lib/antv/g6/4.8.24/dist/g6.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .back-link {
+            background: var(--bg-card);
+            color: var(--primary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            display: inline-block;
+        }
+
+        .back-link:hover {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .description {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+            color: var(--text-muted);
+        }
+
+        .graph-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 700px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fafbfc;
+        }
+
+        .legend {
+            margin-top: 16px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>{{ title }}</h1>
+            <a href="/" class="back-link">← 返回控制面板</a>
+        </header>
+
+        {% if description %}
+        <div class="description">
+            {{ description }}
+        </div>
+        {% endif %}
+
+        <div class="graph-card">
+            <div id="graph-container"></div>
+            {% if legend %}
+            <div class="legend">
+                {% for item in legend %}
+                <div class="legend-item">
+                    <span class="legend-icon" style="background-color: {{ item.color }}"></span>
+                    <span>{{ item.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        const treeData = {{ tree_data | safe }};
+
+        // Configure the graph
+        const container = document.getElementById('graph-container');
+        const width = container.scrollWidth;
+        const height = container.scrollHeight || 700;
+
+        const graph = new G6.TreeGraph({
+            container: 'graph-container',
+            width,
+            height,
+            modes: {
+                default: ['drag-canvas', 'zoom-canvas'],
+            },
+            layout: {
+                type: 'compactBox',
+                direction: 'TB',
+                getId: function getId(d) {
+                    return d.id;
+                },
+                getHeight: function getHeight() {
+                    return 16;
+                },
+                getWidth: function getWidth() {
+                    return 16;
+                },
+                getVGap: function getVGap() {
+                    return 80;
+                },
+                getHGap: function getHGap() {
+                    return 70;
+                },
+            },
+            defaultNode: {
+                type: 'circle',
+                size: [70],
+                style: {
+                    fill: '#5B8FF9',
+                    stroke: '#ffffff',
+                    lineWidth: 2,
+                },
+                labelCfg: {
+                    position: 'center',
+                    style: {
+                        fill: '#ffffff',
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                    },
+                },
+            },
+            defaultEdge: {
+                type: 'cubic-vertical',
+                style: {
+                    stroke: '#94a3b8',
+                    lineWidth: 2,
+                    endArrow: {
+                        path: G6.Arrow.triangle(8, 10, 0),
+                        d: 0,
+                        fill: '#94a3b8',
+                    },
+                },
+            },
+            fitView: true,
+            fitViewPadding: [40, 40, 40, 40],
+        });
+
+        graph.data(treeData);
+        graph.render();
+
+        // Add service name labels below nodes
+        graph.getNodes().forEach(node => {
+            const model = node.getModel();
+            if (model.description) {
+                const group = node.getContainer();
+                group.addShape('text', {
+                    attrs: {
+                        x: 0,
+                        y: 50,
+                        text: model.description,
+                        fontSize: 12,
+                        fill: '#0f172a',
+                        textAlign: 'center',
+                        textBaseline: 'top',
+                        fontWeight: 500,
+                    },
+                    name: 'description-text',
+                });
+            }
+        });
+
+        // Add resize listener
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('graph-container');
+            if (!graph || graph.get('destroyed')) return;
+            if (!container || !container.scrollWidth || !container.scrollHeight) return;
+            graph.changeSize(container.scrollWidth, container.scrollHeight);
+            graph.fitView();
+        });
+
+        // Tooltip
+        const tooltip = document.getElementById('tooltip');
+        
+        graph.on('node:mouseenter', (evt) => {
+            const { item } = evt;
+            const model = item.getModel();
+            tooltip.innerHTML = `
+                <div><strong>${model.name || model.label}</strong></div>
+                <div>关键性分数: ${model.criticality || 0}</div>
+                <div>相对比例: ${model.percentage || 0}%</div>
+                ${model.priority !== undefined ? `<div>优先级: ${model.priority}</div>` : ''}
+            `;
+            tooltip.style.display = 'block';
+        });
+
+        graph.on('node:mousemove', (evt) => {
+            tooltip.style.left = evt.clientX + 10 + 'px';
+            tooltip.style.top = evt.clientY + 10 + 'px';
+        });
+
+        graph.on('node:mouseleave', () => {
+            tooltip.style.display = 'none';
+        });
+
+        graph.on('node:click', (evt) => {
+            const { item } = evt;
+            const model = item.getModel();
+            console.log('Node clicked:', model);
+        });
+    </script>
+</body>
+
+</html>

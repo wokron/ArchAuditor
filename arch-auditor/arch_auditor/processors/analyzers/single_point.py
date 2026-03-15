@@ -2,6 +2,9 @@ from ...processors import Processor
 import networkx as nx
 from arch_auditor.reporter import ReportMessage, ReportType
 from fastapi.responses import JSONResponse
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
+import json
 
 
 class SinglePointAnalyzer(Processor):
@@ -115,10 +118,109 @@ class SinglePointAnalyzer(Processor):
         return True
 
     def visualize(self):
-        # TODO: Implement actual visualization of the dominator tree and criticality scores
-        return JSONResponse(
-            {
-                "dominator_tree": self.dominator_tree,
-                "criticality_scores": self.criticality_scores,
+        if self.dominator_tree is None or not self.criticality_scores:
+            return JSONResponse(
+                {"error": "No data available. Please run the analyzer first."}
+            )
+        
+        # Get templates directory
+        templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
+        templates = Jinja2Templates(directory=str(templates_dir))
+        
+        # Find root node - it's the node that appears in values but not in keys
+        # Or we can get it from the graph (node with in_degree 0)
+        G = self.context.system_state.graph
+        root = None
+        for node in G.nodes:
+            if G.in_degree(node) == 0:
+                root = node
+                break
+        
+        if root is None:
+            return JSONResponse({"error": "No root found in graph"})
+        
+        # Build children map from dominator tree
+        children_map = {}
+        for child, dominator in self.dominator_tree.items():
+            children_map.setdefault(dominator, []).append(child)
+        
+        # Get the max criticality for normalization
+        max_criticality = max(self.criticality_scores.values()) if self.criticality_scores else 1
+        
+        # Build tree structure recursively
+        def build_tree_node(node_id):
+            criticality = self.criticality_scores.get(node_id, 0)
+            normalized_criticality = criticality / max_criticality if max_criticality > 0 else 0
+            percentage = normalized_criticality * 100
+            
+            # Color based on criticality (red for high, yellow for medium, green for low)
+            if normalized_criticality > 0.5:
+                color = '#ef4444'  # Red
+            elif normalized_criticality > 0.2:
+                color = '#f59e0b'  # Orange
+            elif normalized_criticality > 0.1:
+                color = '#eab308'  # Yellow
+            else:
+                color = '#22c55e'  # Green
+            
+            node = {
+                "id": str(node_id),
+                "label": f"{percentage:.1f}%",
+                "description": str(node_id),
+                "name": str(node_id),
+                "percentage": round(percentage, 1),
+                "criticality": round(criticality, 2),
+                "style": {
+                    "fill": color,
+                    "stroke": "#ffffff",
+                    "lineWidth": 2,
+                },
             }
+            
+            # Add priority if available
+            G = self.context.system_state.graph
+            if node_id in G.nodes:
+                priority = G.nodes[node_id].get("priority", None)
+                if priority is not None:
+                    node["priority"] = priority
+            
+            # Add children
+            children = children_map.get(node_id, [])
+            if children:
+                node["children"] = [build_tree_node(child) for child in children]
+            
+            return node
+        
+        tree_data = build_tree_node(root)
+        
+        # Calculate percentage for critical nodes
+        root_criticality = self.criticality_scores.get(root, 0)
+        critical_nodes = []
+        for node, score in self.criticality_scores.items():
+            if node != root:
+                percentage = (score / root_criticality) * 100 if root_criticality > 0 else 0
+                if percentage > 10:
+                    critical_nodes.append(f"{node} ({percentage:.1f}%)")
+        
+        description = f"支配树展示了服务依赖关系中的关键控制点。节点大小和颜色表示其关键性分数（越大越红表示越关键）。"
+        if critical_nodes:
+            description += f" 关键单点故障服务：{', '.join(critical_nodes)}。"
+        
+        # Prepare legend
+        legend = [
+            {"color": "#ef4444", "label": f"极高关键性 (> 50% 根节点)"},
+            {"color": "#f59e0b", "label": f"高关键性 (20-50%)"},
+            {"color": "#eab308", "label": f"中关键性 (10-20%)"},
+            {"color": "#22c55e", "label": f"低关键性 (< 10%)"},
+        ]
+        
+        return templates.TemplateResponse(
+            "tree_visualization.html",
+            {
+                "request": {},
+                "title": "单点故障分析 - 支配树",
+                "description": description,
+                "tree_data": json.dumps(tree_data),
+                "legend": legend,
+            },
         )
