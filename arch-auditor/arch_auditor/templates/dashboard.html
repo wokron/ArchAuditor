@@ -585,14 +585,33 @@
         }
 
         async function refreshReports() {
-            //修改方法：jsonFetch->apiFetch
             const reports = await apiFetchJson("/api/reports");
-            //新增：拉取后端报告后存到cachedReports
             cachedReports = Array.isArray(reports) ? reports : [];
-            const count = Array.isArray(reports) ? reports.length : "?";
-            $("reportsTag").textContent = count; // Keep the number but don't reset class logic excessively
-            const lines = Array.isArray(reports) ? reports.slice().reverse() : [String(reports)];
-            $("reportsBox").textContent = lines.join("\n") || "// No reports generated yet.";
+            const count = cachedReports.length;
+
+            setText("reportsCount", count);
+            setText("navReportsCount", count);
+
+            const logBox = $("reportsLog");
+            const empty = $("reportsEmpty");
+            if (!logBox || !empty) return;
+
+            logBox.innerHTML = "";
+            const lines = cachedReports.slice().reverse();
+
+            if (!lines.length) {
+                empty.classList.remove("hidden");
+                return;
+            }
+
+            empty.classList.add("hidden");
+            for (const line of lines) {
+                const { type } = classifyReportLine(line);
+                const row = document.createElement("div");
+                row.className = `${reportColorClass(type)} leading-relaxed break-words`;
+                row.textContent = String(line);
+                logBox.appendChild(row);
+            }
         }
 
         async function refreshVis() {
