@@ -22,7 +22,6 @@ class SinglePointAnalyzer(Processor):
         return [
             "ServicePrioritySource",
             "SingleRootDAGSource",
-            "PrometheusMetricsSource",
         ]
 
     def init(self, config) -> bool:
