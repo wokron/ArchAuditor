@@ -20,3 +20,9 @@ processors:
       - default
       - kube-system
   SinglePointAnalyzer: {}
+  MonolithicServiceAnalyzer:
+    degree_threshold: 15
+    resource_multiplier: 5.0
+  ResourceUtilizationAnalyzer:
+    waste_threshold: 0.3
+    limit_risk_threshold: 0.7
