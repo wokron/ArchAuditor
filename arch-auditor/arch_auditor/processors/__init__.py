@@ -5,6 +5,8 @@ from .analyzers import (
     SinglePointAnalyzer,
     K8sConfigAnalyzer,
     OverDecompositionAnalyzer,
+    MonolithicServiceAnalyzer,
+    ResourceUtilizationAnalyzer,
 )
 from .sources import (
     ServicePrioritySource,
@@ -28,6 +30,8 @@ native_registry.register(K8sConfigSource)
 native_registry.register(K8sConfigAnalyzer)
 native_registry.register(OverDecompositionAnalyzer)
 native_registry.register(PrometheusMetricsSource)
+native_registry.register(MonolithicServiceAnalyzer)
+native_registry.register(ResourceUtilizationAnalyzer)
 #### Register native processors end ####
 
 __all__ = [
@@ -46,4 +50,6 @@ __all__ = [
     "K8sConfigAnalyzer",
     "OverDecompositionAnalyzer",
     "PrometheusMetricsSource",
+    "MonolithicServiceAnalyzer",
+    "ResourceUtilizationAnalyzer",
 ]
