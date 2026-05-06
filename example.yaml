@@ -2,10 +2,27 @@ processors:
   ServiceGraphSource:
     type: Jaeger
     jaeger_url: http://localhost:8080/jaeger/ui
+  PrometheusMetricsSource:
+    type: Prometheus
+    prometheus_url: http://localhost:9090
+  CircularDependencyAnalyzer: {}
+  PriorityCheckAnalyzer: {}
+  ServiceDependencySource:
+    type: Mock
   ServicePrioritySource:
     type: InMemory
-  DockerConfigSource: {}
-
-  CircularDependencyAnalyzer: {}
-  DockerConfigAnalyzer: {}
+  K8sConfigSource:
+    namespaces:
+      - default
+      - kube-system
+  K8sConfigAnalyzer:
+    namespaces:
+      - default
+      - kube-system
   SinglePointAnalyzer: {}
+  MonolithicServiceAnalyzer:
+    degree_threshold: 15
+    resource_multiplier: 5.0
+  ResourceUtilizationAnalyzer:
+    waste_threshold: 0.3
+    limit_risk_threshold: 0.7

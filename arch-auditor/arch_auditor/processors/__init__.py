@@ -6,6 +6,8 @@ from .analyzers import (
     K8sConfigAnalyzer,
     OverDecompositionAnalyzer,
     DockerConfigAnalyzer,
+    MonolithicServiceAnalyzer,
+    ResourceUtilizationAnalyzer,
 )
 from .sources import (
     ServicePrioritySource,
@@ -32,6 +34,8 @@ native_registry.register(OverDecompositionAnalyzer)
 native_registry.register(PrometheusMetricsSource)
 native_registry.register(DockerConfigSource)
 native_registry.register(DockerConfigAnalyzer)
+native_registry.register(MonolithicServiceAnalyzer)
+native_registry.register(ResourceUtilizationAnalyzer)
 #### Register native processors end ####
 
 __all__ = [
@@ -52,4 +56,6 @@ __all__ = [
     "PrometheusMetricsSource",
     "DockerConfigSource",
     "DockerConfigAnalyzer",
+    "MonolithicServiceAnalyzer",
+    "ResourceUtilizationAnalyzer",
 ]

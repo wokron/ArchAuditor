@@ -52,6 +52,7 @@ class PrometheusMetricsSource(Processor):
                 or histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket[5m])) by (le, service_name)) / 1000
                 or histogram_quantile(0.95, sum(rate(http_server_duration_seconds_bucket[5m])) by (le, service_name))
                 or histogram_quantile(0.95, sum(rate(rpc_server_duration_milliseconds_bucket[5m])) by (le, service_name)) / 1000
+                or histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket[5m])) by (le, service_name)) / 1000
             """,
             )
             self.throughput_query = config.get(
@@ -61,13 +62,23 @@ class PrometheusMetricsSource(Processor):
                 or sum(rate(http_server_duration_milliseconds_count[5m])) by (service_name)
                 or sum(rate(http_server_duration_seconds_count[5m])) by (service_name)
                 or sum(rate(rpc_server_duration_milliseconds_count[5m])) by (service_name)
+                or sum(rate(traces_span_metrics_calls_total[5m])) by (service_name)
             """,
             )
             self.error_rate_query = config.get(
                 "error_rate_query",
                 """
-                sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m])) by (service_name) 
-                / sum(rate(http_server_request_duration_seconds_count[5m])) by (service_name)
+                (
+                  sum(rate(http_server_duration_milliseconds_count{http_status_code=~"5.."}[5m])) by (service_name)
+                  or sum(rate(rpc_server_duration_milliseconds_count{rpc_grpc_status_code!="0"}[5m])) by (service_name)
+                  or sum(rate(traces_span_metrics_calls_total{status_code="STATUS_CODE_ERROR"}[5m])) by (service_name)
+                )
+                /
+                (
+                  sum(rate(http_server_duration_milliseconds_count[5m])) by (service_name)
+                  or sum(rate(rpc_server_duration_milliseconds_count[5m])) by (service_name)
+                  or sum(rate(traces_span_metrics_calls_total[5m])) by (service_name)
+                )
             """,
             )
             return True
@@ -128,8 +139,10 @@ class PrometheusMetricsSource(Processor):
             if service_name:
 
                 def process_value(val):
+                    if val in ("NaN", "+Inf", "-Inf", "inf", "-inf"):
+                        return None
                     try:
-                        return float(val) if val != "NaN" else None
+                        return float(val)
                     except (ValueError, TypeError):
                         return None
 

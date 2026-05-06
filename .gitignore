@@ -215,4 +215,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-.vscode/
+.vscode/opentelemetry-demo/ 
+opentelemetry-demo

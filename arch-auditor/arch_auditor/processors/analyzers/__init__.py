@@ -4,3 +4,5 @@ from .single_point import SinglePointAnalyzer
 from .k8s_config import K8sConfigAnalyzer
 from .over_decomposition import OverDecompositionAnalyzer
 from .docker_config import DockerConfigAnalyzer
+from .monolithic_service import MonolithicServiceAnalyzer
+from .resource_utilization import ResourceUtilizationAnalyzer

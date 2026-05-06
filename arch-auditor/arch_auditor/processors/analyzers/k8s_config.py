@@ -1,3 +1,5 @@
+import html as html_lib
+from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -26,17 +28,18 @@ class K8sConfigAnalyzer(Processor):
         return True
 
     def process(self) -> None:
-        k8s_configs = self.context.system_state.extra_attrs.get("k8s_configs", {})
+        k8s_configs = self.context.system_state.extra_attrs.get("k8s_configs", {}) or {}
 
+        # Reset each run so the visualization reflects the latest scan only.
         self.issues = []
         self.issues_by_resource = defaultdict(list)
 
-        for dep in k8s_configs.get("deployments", []):
+        for dep in k8s_configs.get("deployments", []) or []:
             self._check_security_context("deployment", dep)
             self._check_resource_limits("deployment", dep)
             self._check_probe_settings("deployment", dep)
 
-        for pod in k8s_configs.get("pods", []):
+        for pod in k8s_configs.get("pods", []) or []:
             self._check_security_context("pod", pod)
             self._check_resource_limits("pod", pod)
             self._check_probe_settings("pod", pod)
@@ -52,20 +55,47 @@ class K8sConfigAnalyzer(Processor):
         if ns not in self.namespaces:
             return
 
-        containers = []
-        if config_type == "deployment":
-            containers = (
-                config.get("spec", {})
-                .get("template", {})
-                .get("spec", {})
-                .get("containers", [])
-            )
-        else:
-            containers = config.get("spec", {}).get("containers", [])
+        containers = config.get("containers")
+        if containers is None:
+            if config_type == "deployment":
+                containers = (
+                    config.get("spec", {})
+                    .get("template", {})
+                    .get("spec", {})
+                    .get("containers", [])
+                )
+            else:
+                containers = config.get("spec", {}).get("containers", [])
+
+        if not containers:
+            return
+
+        # If the source didn't provide probe information at all, don't generate
+        # noisy "missing probe" warnings.
+        probe_keys = {
+            "livenessProbe",
+            "readinessProbe",
+            "liveness_probe",
+            "readiness_probe",
+        }
+        if not any(
+            isinstance(container, dict) and probe_keys.intersection(container.keys())
+            for container in containers
+        ):
+            return
 
         for container in containers:
-            liveness_probe = container.get("livenessProbe", {})
-            readiness_probe = container.get("readinessProbe", {})
+            if not isinstance(container, dict):
+                continue
+
+            liveness_probe = (
+                container.get("livenessProbe") or container.get("liveness_probe") or {}
+            )
+            readiness_probe = (
+                container.get("readinessProbe")
+                or container.get("readiness_probe")
+                or {}
+            )
 
             if not liveness_probe:
                 self._add_issue(
@@ -92,18 +122,22 @@ class K8sConfigAnalyzer(Processor):
         if ns not in self.namespaces:
             return
 
-        containers = []
-        if config_type == "deployment":
-            containers = (
-                config.get("spec", {})
-                .get("template", {})
-                .get("spec", {})
-                .get("containers", [])
-            )
-        else:
-            containers = config.get("spec", {}).get("containers", [])
+        containers = config.get("containers")
+        if containers is None:
+            if config_type == "deployment":
+                containers = (
+                    config.get("spec", {})
+                    .get("template", {})
+                    .get("spec", {})
+                    .get("containers", [])
+                )
+            else:
+                containers = config.get("spec", {}).get("containers", [])
 
         for container in containers:
+            if not isinstance(container, dict):
+                continue
+
             resources = container.get("resources", {})
             limits = resources.get("limits", {})
             requests = resources.get("requests", {})
@@ -135,15 +169,34 @@ class K8sConfigAnalyzer(Processor):
 
         if config_type == "deployment":
             security_context = (
-                config.get("spec", {})
+                config.get("securityContext")
+                or config.get("security_context")
+                or config.get("spec", {})
                 .get("template", {})
                 .get("spec", {})
-                .get("security_context", {})
+                .get("securityContext")
+                or config.get("spec", {})
+                .get("template", {})
+                .get("spec", {})
+                .get("security_context")
             )
         else:
-            security_context = config.get("spec", {}).get("security_context", {})
+            security_context = (
+                config.get("securityContext")
+                or config.get("security_context")
+                or config.get("spec", {}).get("securityContext")
+                or config.get("spec", {}).get("security_context")
+            )
 
-        if not security_context.get("run_as_non_root", False):
+        # If the source doesn't provide security context data, don't emit false
+        # positives.
+        if not isinstance(security_context, dict) or not security_context:
+            return
+
+        run_as_non_root = security_context.get("run_as_non_root")
+        if run_as_non_root is None:
+            run_as_non_root = security_context.get("runAsNonRoot")
+        if run_as_non_root is False:
             self._add_issue(
                 "ERROR",
                 "RUN_AS_ROOT",
@@ -151,7 +204,7 @@ class K8sConfigAnalyzer(Processor):
                 f"{config_type}/{ns}/{name}",
             )
 
-        if security_context.get("privileged", False):
+        if security_context.get("privileged") is True:
             self._add_issue(
                 "ERROR",
                 "PRIVILEGED_MODE",
@@ -159,7 +212,10 @@ class K8sConfigAnalyzer(Processor):
                 f"{config_type}/{ns}/{name}",
             )
 
-        if security_context.get("allow_privilege_escalation", True):
+        allow_privilege_escalation = security_context.get("allow_privilege_escalation")
+        if allow_privilege_escalation is None:
+            allow_privilege_escalation = security_context.get("allowPrivilegeEscalation")
+        if allow_privilege_escalation is True:
             self._add_issue(
                 "ERROR",
                 "PRIVILEGE_ESCALATION",
@@ -167,7 +223,10 @@ class K8sConfigAnalyzer(Processor):
                 f"{config_type}/{ns}/{name}",
             )
 
-        if not security_context.get("read_only_root_filesystem", False):
+        read_only_root_filesystem = security_context.get("read_only_root_filesystem")
+        if read_only_root_filesystem is None:
+            read_only_root_filesystem = security_context.get("readOnlyRootFilesystem")
+        if read_only_root_filesystem is False:
             self._add_issue(
                 "WARNING",
                 "RW_ROOT_FS",
@@ -175,7 +234,9 @@ class K8sConfigAnalyzer(Processor):
                 f"{config_type}/{ns}/{name}",
             )
 
-        capabilities = security_context.get("capabilities", {})
+        capabilities = security_context.get("capabilities") or {}
+        if not isinstance(capabilities, dict):
+            return
         if "ALL" in capabilities.get("add", []):
             self._add_issue(
                 "ERROR",
