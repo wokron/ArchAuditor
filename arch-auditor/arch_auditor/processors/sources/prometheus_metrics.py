@@ -157,6 +157,9 @@ class PrometheusMetricsSource(Processor):
             for service_name, timeseries in services_data.items():
                 if service_name in G.nodes and timeseries:
                     G.nodes[service_name][metric_name] = timeseries
+        # Write to extra_attrs so downstream analyzers (e.g. ResourceUtilizationAnalyzer)
+        # can consume metrics_timeseries without accessing graph nodes directly.
+        self.context.system_state.extra_attrs["metrics_timeseries"] = self.metrics_timeseries
 
     @staticmethod
     def has_visualization() -> bool:

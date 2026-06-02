@@ -82,16 +82,47 @@ class K8sConfigSource(Processor):
         try:
             deps = self.apps_v1.list_namespaced_deployment(ns)
             for dep in deps.items:
+                pod_spec = dep.spec.template.spec
                 containers = []
-                for c in (dep.spec.template.spec.containers or []):
+                for c in (pod_spec.containers or []):
                     info = {"name": c.name, "image": c.image}
                     if c.resources:
                         info["resources"] = {
                             "limits": dict(c.resources.limits or {}),
                             "requests": dict(c.resources.requests or {}),
                         }
+                    # Expose probe config so K8sConfigAnalyzer can check liveness/readiness
+                    if c.liveness_probe:
+                        info["livenessProbe"] = self._probe_to_dict(c.liveness_probe)
+                    if c.readiness_probe:
+                        info["readinessProbe"] = self._probe_to_dict(c.readiness_probe)
                     containers.append(info)
-                
+
+                # Expose pod-level security_context for K8sConfigAnalyzer
+                sec_ctx = {}
+                if pod_spec.security_context:
+                    sec_ctx = {
+                        "run_as_non_root": pod_spec.security_context.run_as_non_root,
+                        "privileged": pod_spec.security_context.privileged,
+                        "allow_privilege_escalation": pod_spec.security_context.allow_privilege_escalation,
+                        "read_only_root_filesystem": pod_spec.security_context.read_only_root_filesystem,
+                    }
+                    if pod_spec.security_context.capabilities:
+                        sec_ctx["capabilities"] = {
+                            "add": list(pod_spec.security_context.capabilities.add or []),
+                            "drop": list(pod_spec.security_context.capabilities.drop or []),
+                        }
+
+                # Expose volumes for hostPath mount detection
+                volumes = []
+                for v in (pod_spec.volumes or []):
+                    vol_info = {"name": v.name}
+                    if v.host_path:
+                        vol_info["hostPath"] = {"path": v.host_path.path}
+                    if v.empty_dir:
+                        vol_info["emptyDir"] = {}
+                    volumes.append(vol_info)
+
                 k8s_configs["deployments"].append({
                     "name": dep.metadata.name,
                     "namespace": dep.metadata.namespace,
@@ -99,9 +130,28 @@ class K8sConfigSource(Processor):
                     "ready_replicas": dep.status.ready_replicas or 0,
                     "containers": containers,
                     "labels": dict(dep.metadata.labels or {}),
+                    "securityContext": sec_ctx,
+                    "volumes": volumes,
                 })
         except ApiException as e:
             self._report_error("Deployments", ns, e)
+
+    @staticmethod
+    def _probe_to_dict(probe) -> dict:
+        """Convert a Kubernetes V1Probe object to a plain dict for downstream consumers."""
+        d = {}
+        if probe.http_get:
+            d["httpGet"] = {
+                "path": probe.http_get.path,
+                "port": probe.http_get.port,
+            }
+        if probe.tcp_socket:
+            d["tcpSocket"] = {"port": probe.tcp_socket.port}
+        if probe.exec_:
+            d["exec"] = {"command": list(probe.exec_.command or [])}
+        d["initialDelaySeconds"] = probe.initial_delay_seconds
+        d["periodSeconds"] = probe.period_seconds
+        return d
 
     def _fetch_services(self, ns: str, k8s_configs: dict) -> None:
         try:

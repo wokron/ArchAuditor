@@ -38,6 +38,7 @@ class K8sConfigAnalyzer(Processor):
             self._check_security_context("deployment", dep)
             self._check_resource_limits("deployment", dep)
             self._check_probe_settings("deployment", dep)
+            self._check_host_path_mounts("deployment", dep)
 
         for pod in k8s_configs.get("pods", []) or []:
             self._check_security_context("pod", pod)
@@ -253,6 +254,34 @@ class K8sConfigAnalyzer(Processor):
                 f"{config_type.capitalize()} '{name}' does not drop capabilities",
                 f"{config_type}/{ns}/{name}",
             )
+
+    def _check_host_path_mounts(self, config_type, config: dict) -> None:
+        """Warn if the workload mounts local host paths (hostPath volumes)."""
+        if config_type != "deployment":
+            return
+
+        name = config.get("name", "unknown")
+        ns = config.get("namespace", "default")
+        if ns not in self.namespaces:
+            return
+
+        volumes = config.get("volumes")
+        if not volumes:
+            return
+
+        for vol in volumes:
+            if not isinstance(vol, dict):
+                continue
+            host_path = vol.get("hostPath") or vol.get("host_path")
+            if host_path:
+                path = host_path.get("path", "") if isinstance(host_path, dict) else str(host_path)
+                self._add_issue(
+                    "WARNING",
+                    "HOST_PATH_MOUNT",
+                    f"Deployment '{name}' mounts host path '{path}' via volume '{vol.get('name', 'unknown')}'. "
+                    f"This binds the pod to a specific node and may cause security risks.",
+                    f"{config_type}/{ns}/{name}",
+                )
 
     def _add_issue(
         self, severity: str, issue_type: str, msg: str, resource: str
