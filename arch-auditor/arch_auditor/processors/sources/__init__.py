@@ -6,3 +6,4 @@ from .k8s_config import K8sConfigSource
 from .prometheus_metrics import PrometheusMetricsSource
 from .docker_config import DockerConfigSource
 from .config_drift import ConfigDriftSource
+from .deployment_history import DeploymentHistorySource

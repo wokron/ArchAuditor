@@ -184,6 +184,19 @@ class K8sConfigSource(Processor):
                 )
                 node_name = pod.spec.node_name or ""
                 zone = node_zones.get(node_name, "")
+
+                # Extract creation / ready timestamps for maintainability analysis
+                creation_time = ""
+                ready_time = ""
+                if pod.metadata.creation_timestamp:
+                    creation_time = pod.metadata.creation_timestamp.isoformat()
+                if pod.status.conditions:
+                    for cond in pod.status.conditions:
+                        if cond.type == "Ready" and cond.status == "True":
+                            if cond.last_transition_time:
+                                ready_time = cond.last_transition_time.isoformat()
+                            break
+
                 k8s_configs["pods"].append({
                     "name": pod.metadata.name,
                     "namespace": pod.metadata.namespace,
@@ -191,6 +204,8 @@ class K8sConfigSource(Processor):
                     "node_name": node_name,
                     "zone": zone,
                     "restart_count": restart_count,
+                    "creation_time": creation_time,
+                    "ready_time": ready_time,
                     "labels": dict(pod.metadata.labels or {}),
                 })
         except ApiException as e:

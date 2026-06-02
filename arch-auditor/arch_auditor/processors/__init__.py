@@ -10,6 +10,7 @@ from .analyzers import (
     ResourceUtilizationAnalyzer,
     IsolationAnalyzer,
     ConfigDriftAnalyzer,
+    MaintainabilityAnalyzer,
 )
 from .sources import (
     ServicePrioritySource,
@@ -20,6 +21,7 @@ from .sources import (
     PrometheusMetricsSource,
     DockerConfigSource,
     ConfigDriftSource,
+    DeploymentHistorySource,
 )
 
 native_registry = ProcessorRegistry()
@@ -42,6 +44,8 @@ native_registry.register(ResourceUtilizationAnalyzer)
 native_registry.register(IsolationAnalyzer)
 native_registry.register(ConfigDriftSource)
 native_registry.register(ConfigDriftAnalyzer)
+native_registry.register(DeploymentHistorySource)
+native_registry.register(MaintainabilityAnalyzer)
 #### Register native processors end ####
 
 __all__ = [
@@ -67,4 +71,6 @@ __all__ = [
     "IsolationAnalyzer",
     "ConfigDriftSource",
     "ConfigDriftAnalyzer",
+    "DeploymentHistorySource",
+    "MaintainabilityAnalyzer",
 ]

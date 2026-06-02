@@ -8,3 +8,4 @@ from .monolithic_service import MonolithicServiceAnalyzer
 from .resource_utilization import ResourceUtilizationAnalyzer
 from .isolation import IsolationAnalyzer
 from .config_drift import ConfigDriftAnalyzer
+from .maintainability import MaintainabilityAnalyzer
