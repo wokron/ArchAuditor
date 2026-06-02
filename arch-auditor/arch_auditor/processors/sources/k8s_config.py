@@ -62,8 +62,12 @@ class K8sConfigSource(Processor):
             "secrets": [],
             "hpa": [],
             "resource_quotas": [],
+            "node_zones": {},
         }
-        
+
+        # Collect node -> zone mapping first (cluster-wide, not per namespace)
+        self._fetch_nodes(k8s_configs)
+
         for ns in self.namespaces:
             self._fetch_namespace_resources(ns, k8s_configs)
         
@@ -172,16 +176,20 @@ class K8sConfigSource(Processor):
     def _fetch_pods(self, ns: str, k8s_configs: dict) -> None:
         try:
             pods = self.v1.list_namespaced_pod(ns)
+            node_zones = k8s_configs.get("node_zones", {})
             for pod in pods.items:
                 restart_count = sum(
                     cs.restart_count for cs in (pod.status.container_statuses or []) 
                     if cs.restart_count
                 )
+                node_name = pod.spec.node_name or ""
+                zone = node_zones.get(node_name, "")
                 k8s_configs["pods"].append({
                     "name": pod.metadata.name,
                     "namespace": pod.metadata.namespace,
                     "phase": pod.status.phase,
-                    "node_name": pod.spec.node_name,
+                    "node_name": node_name,
+                    "zone": zone,
                     "restart_count": restart_count,
                     "labels": dict(pod.metadata.labels or {}),
                 })
@@ -240,6 +248,22 @@ class K8sConfigSource(Processor):
                 })
         except ApiException as e:
             self._report_error("ResourceQuotas", ns, e)
+
+    def _fetch_nodes(self, k8s_configs: dict) -> None:
+        """Collect node_name -> zone mapping for isolation analysis."""
+        try:
+            nodes = self.v1.list_node()
+            zone_label = "topology.kubernetes.io/zone"
+            for n in nodes.items:
+                name = n.metadata.name
+                labels = n.metadata.labels or {}
+                zone = labels.get(zone_label, "")
+                # Fallback: some clusters use failure-domain.beta.kubernetes.io/zone
+                if not zone:
+                    zone = labels.get("failure-domain.beta.kubernetes.io/zone", "")
+                k8s_configs["node_zones"][name] = zone
+        except ApiException as e:
+            self._report_error("Nodes", "*", e)
 
     def _report_error(self, resource_type: str, ns: str, error) -> None:
         self.context.reporter.report(ReportMessage(
