@@ -87,6 +87,13 @@ class ServiceGraphSource(Processor):
                 self.context.system_state.graph.add_edges_from(edges)
                 for node, count in callCounts.items():
                     self.context.system_state.graph.nodes[node]["call_count"] = count
+                # Also store per-edge call counts for downstream analyzers
+                if "data" in dependencies:
+                    for dep in dependencies["data"]:
+                        parent = dep.get("parent")
+                        child = dep.get("child")
+                        if parent and child and parent != child:
+                            self.context.system_state.graph.edges[parent, child]["call_count"] = dep.get("callCount", 0)
 
         except requests.exceptions.RequestException as e:
             self.context.reporter.report(
