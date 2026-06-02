@@ -33,8 +33,9 @@ class PrometheusMetricsSource(Processor):
         if source_type == "Mock":
             metrics = config.get("metrics", {})
             for metric_name, services_data in metrics.items():
+                slot = self.metrics_timeseries.setdefault(metric_name, {})
                 for service_name, timeseries in services_data.items():
-                    self.metrics_timeseries[metric_name][service_name] = timeseries
+                    slot[service_name] = timeseries
             self._update_graph_metrics()
             return True
         elif source_type == "Prometheus":

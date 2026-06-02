@@ -22,11 +22,16 @@ class K8sConfigSource(Processor):
 
     def init(self, config_dict: dict) -> bool:
         self.k8s_config = config_dict or {}
+        source_type = self.k8s_config.get("type", "K8s")
+        self.source_type = source_type
         self.namespaces = self.k8s_config.get(
             "namespaces", 
             [self.k8s_config.get("namespace", "default")]
         )
-        
+
+        if source_type == "Mock":
+            return True
+
         if not K8S_AVAILABLE:
             return False
         
@@ -54,6 +59,12 @@ class K8sConfigSource(Processor):
             return False
 
     def process(self) -> None:
+        if self.source_type == "Mock":
+            # Inject k8s_configs directly from config (for testing)
+            mock_data = self.k8s_config.get("k8s_configs", {})
+            self.context.system_state.extra_attrs["k8s_configs"] = mock_data
+            return
+
         k8s_configs = {
             "deployments": [],
             "services": [],
