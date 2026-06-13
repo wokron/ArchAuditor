@@ -1,7 +1,8 @@
 processors:
   ServiceGraphSource:
     type: Jaeger
-    jaeger_url: http://localhost:8080/jaeger/ui
+    jaeger_url: http://localhost:16686
+    lookback_ms: 3600000
   PrometheusMetricsSource:
     type: Prometheus
     prometheus_url: http://localhost:9090
@@ -9,7 +10,7 @@ processors:
   PriorityCheckAnalyzer: {}
   ServiceDependencySource:
     type: Jaeger
-    jaeger_url: http://localhost:8080/jaeger/ui
+    jaeger_url: http://localhost:16686
     lookback_ms: 3600000
     strong_call_threshold: 100
     correlation_threshold: 0.7
@@ -18,13 +19,21 @@ processors:
     type: InMemory
   K8sConfigSource:
     namespaces:
-      - default
-      - kube-system
+      - otel-demo
   K8sConfigAnalyzer:
     namespaces:
-      - default
-      - kube-system
+      - otel-demo
+  DeploymentHistorySource:
+    type: K8s
+    namespaces:
+      - otel-demo
+    rollback_window_minutes: 10
   SinglePointAnalyzer: {}
+  OverDecompositionAnalyzer:
+    path_service_threshold: 5
+    pipe_service_ratio_threshold: 0.3
+    co_deploy_overlap_threshold: 0.8
+    co_deploy_window_minutes: 5
   MonolithicServiceAnalyzer:
     degree_threshold: 15
     resource_multiplier: 5.0

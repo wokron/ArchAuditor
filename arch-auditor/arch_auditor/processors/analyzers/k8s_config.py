@@ -34,6 +34,8 @@ class K8sConfigAnalyzer(Processor):
         self.issues = []
         self.issues_by_resource = defaultdict(list)
 
+        self._check_resource_quotas(k8s_configs)
+
         for dep in k8s_configs.get("deployments", []) or []:
             self._check_security_context("deployment", dep)
             self._check_resource_limits("deployment", dep)
@@ -46,6 +48,34 @@ class K8sConfigAnalyzer(Processor):
             self._check_probe_settings("pod", pod)
 
         self.context.system_state.extra_attrs["k8s_issues"] = self.issues
+
+    def _check_resource_quotas(self, k8s_configs: dict) -> None:
+        quota_namespaces = {
+            quota.get("namespace", "default")
+            for quota in (k8s_configs.get("resource_quotas", []) or [])
+            if quota.get("namespace", "default") in self.namespaces
+        }
+        workload_namespaces = {
+            dep.get("namespace", "default")
+            for dep in (k8s_configs.get("deployments", []) or [])
+            if dep.get("namespace", "default") in self.namespaces
+        }
+        workload_namespaces.update(
+            pod.get("namespace", "default")
+            for pod in (k8s_configs.get("pods", []) or [])
+            if pod.get("namespace", "default") in self.namespaces
+        )
+
+        for ns in self.namespaces:
+            if ns not in workload_namespaces:
+                continue
+            if ns not in quota_namespaces:
+                self._add_issue(
+                    "WARNING",
+                    "MISSING_RESOURCE_QUOTA",
+                    f"Namespace '{ns}' has workloads but no ResourceQuota configured.",
+                    f"namespace/{ns}/{ns}",
+                )
 
     def _check_probe_settings(self, config_type, config: dict) -> None:
         if config_type not in ["deployment", "pod"]:
@@ -335,7 +365,10 @@ class K8sConfigAnalyzer(Processor):
             if ns in self.namespaces:
                 resource_name = f"pod/{ns}/{name}"
                 all_resources.add(resource_name)
-        
+
+        for resource_name in self.issues_by_resource.keys():
+            all_resources.add(resource_name)
+
         for resource_name in sorted(all_resources):
             issues = self.issues_by_resource.get(resource_name, [])
             

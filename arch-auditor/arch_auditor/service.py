@@ -64,6 +64,12 @@ class ArchAuditService:
         api.post("/audit")(self.trigger_audit)
         api.get("/reports")(self.list_reports)
         api.get("/service-graph")(self.get_service_graph)
+        api.get("/dependency-edges")(self.get_dependency_edges)
+        api.get("/metrics-timeseries")(self.get_metrics_timeseries)
+        api.get("/resource-utilization")(self.get_resource_utilization)
+        api.get("/monolithic-services")(self.get_monolithic_services)
+        api.get("/over-decomposition")(self.get_over_decomposition)
+        api.get("/deployment-history")(self.get_deployment_history)
 
         if self.priority_manager is not None:
             api.get("/priorities")(self.list_priorities)
@@ -276,6 +282,241 @@ class ArchAuditService:
             "view": view_name,
             "message": message,
             "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def get_dependency_edges(self):
+        graph = self.arch_auditor.system_state.graph
+        edges = []
+        for source, target, attrs in graph.edges(data=True):
+            attrs = attrs or {}
+            edges.append(
+                {
+                    "source": str(source),
+                    "target": str(target),
+                    "dependency_type": attrs.get("dependency_type", "unknown"),
+                    "call_count": attrs.get("call_count") or attrs.get("callCount"),
+                    "dependency_correlation": attrs.get("dependency_correlation"),
+                    "dependency_correlation_status": attrs.get(
+                        "dependency_correlation_status"
+                    ),
+                }
+            )
+
+        edges.sort(key=lambda item: (item["source"], item["target"]))
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(edges),
+            "edges": edges,
+        }
+
+    def get_metrics_timeseries(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        metrics_timeseries = extra_attrs.get("metrics_timeseries", {}) or {}
+        raw_metrics_timeseries = extra_attrs.get("raw_metrics_timeseries", {}) or {}
+        metric_aliases = extra_attrs.get("metrics_aliases", {}) or {}
+        prometheus_queries = extra_attrs.get("prometheus_queries", {}) or {}
+
+        summary = {}
+        for metric_name, services_data in metrics_timeseries.items():
+            summary[metric_name] = []
+            for service_name, points in services_data.items():
+                summary[metric_name].append(
+                    {
+                        "service": service_name,
+                        "points": len(points or []),
+                        "sample": (points or [])[:5],
+                    }
+                )
+            summary[metric_name].sort(key=lambda item: item["service"])
+
+        raw_summary = {}
+        for metric_name, services_data in raw_metrics_timeseries.items():
+            raw_summary[metric_name] = []
+            for service_name, points in services_data.items():
+                raw_summary[metric_name].append(
+                    {
+                        "service": service_name,
+                        "mapped_service": metric_aliases.get(service_name),
+                        "points": len(points or []),
+                        "sample": (points or [])[:5],
+                    }
+                )
+            raw_summary[metric_name].sort(key=lambda item: item["service"])
+
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "queries": prometheus_queries,
+            "aliases": metric_aliases,
+            "raw_metrics": raw_summary,
+            "metrics": summary,
+        }
+
+    def get_resource_utilization(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        summary = extra_attrs.get("resource_utilization_summary", []) or []
+
+        normalized = []
+        for item in summary:
+            normalized.append(
+                {
+                    "service": item.get("service"),
+                    "container": item.get("container"),
+                    "priority": item.get("priority"),
+                    "request_cpu": item.get("request_cpu"),
+                    "limit_cpu": item.get("limit_cpu"),
+                    "request_memory_bytes": item.get("request_memory_bytes"),
+                    "limit_memory_bytes": item.get("limit_memory_bytes"),
+                    "avg_cpu_usage": item.get("avg_cpu_usage"),
+                    "short_term_avg_cpu_usage": item.get(
+                        "short_term_avg_cpu_usage"
+                    ),
+                    "avg_memory_usage_bytes": item.get("avg_memory_usage_bytes"),
+                    "short_term_avg_memory_usage_bytes": item.get(
+                        "short_term_avg_memory_usage_bytes"
+                    ),
+                    "cpu_timeseries_points": item.get("cpu_timeseries_points"),
+                    "memory_timeseries_points": item.get("memory_timeseries_points"),
+                    "has_missing_request_issue": item.get(
+                        "has_missing_request_issue", False
+                    ),
+                    "has_cpu_waste_issue": item.get("has_cpu_waste_issue", False),
+                    "has_memory_waste_issue": item.get(
+                        "has_memory_waste_issue", False
+                    ),
+                    "has_waste_issue": item.get("has_waste_issue", False),
+                    "has_cpu_limit_risk_issue": item.get(
+                        "has_cpu_limit_risk_issue", False
+                    ),
+                    "has_memory_limit_risk_issue": item.get(
+                        "has_memory_limit_risk_issue", False
+                    ),
+                    "has_limit_risk_issue": item.get(
+                        "has_limit_risk_issue", False
+                    ),
+                }
+            )
+
+        normalized.sort(key=lambda item: (item["service"] or "", item["container"] or ""))
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(normalized),
+            "items": normalized,
+        }
+
+    def get_monolithic_services(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        summary = extra_attrs.get("monolithic_service_summary", []) or []
+
+        normalized = []
+        for item in summary:
+            normalized.append(
+                {
+                    "service": item.get("service"),
+                    "in_degree": item.get("in_degree"),
+                    "out_degree": item.get("out_degree"),
+                    "degree": item.get("degree"),
+                    "degree_threshold": item.get("degree_threshold"),
+                    "has_architecture_issue": item.get(
+                        "has_architecture_issue", False
+                    ),
+                    "avg_cpu_usage": item.get("avg_cpu_usage"),
+                    "avg_memory_usage_bytes": item.get("avg_memory_usage_bytes"),
+                    "cpu_timeseries_points": item.get("cpu_timeseries_points", 0),
+                    "memory_timeseries_points": item.get(
+                        "memory_timeseries_points", 0
+                    ),
+                    "cluster_median_avg_cpu_usage": item.get(
+                        "cluster_median_avg_cpu_usage"
+                    ),
+                    "cluster_median_avg_memory_usage_bytes": item.get(
+                        "cluster_median_avg_memory_usage_bytes"
+                    ),
+                    "total_request_cpu": item.get("total_request_cpu"),
+                    "total_limit_cpu": item.get("total_limit_cpu"),
+                    "total_request_memory_bytes": item.get(
+                        "total_request_memory_bytes"
+                    ),
+                    "total_limit_memory_bytes": item.get("total_limit_memory_bytes"),
+                    "has_resource_cpu_monolith_issue": item.get(
+                        "has_resource_cpu_monolith_issue", False
+                    ),
+                    "has_resource_memory_monolith_issue": item.get(
+                        "has_resource_memory_monolith_issue", False
+                    ),
+                    "has_resource_monolith_issue": item.get(
+                        "has_resource_monolith_issue", False
+                    ),
+                }
+            )
+
+        normalized.sort(key=lambda item: item["service"] or "")
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(normalized),
+            "items": normalized,
+        }
+
+    def get_over_decomposition(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        summary = extra_attrs.get("over_decomposition_summary", {}) or {}
+
+        normalized = {
+            "root_services": summary.get("root_services", []),
+            "root_count": summary.get("root_count", 0),
+            "longest_path_services": summary.get("longest_path_services", []),
+            "longest_path_service_count": summary.get(
+                "longest_path_service_count", 0
+            ),
+            "path_service_threshold": summary.get("path_service_threshold"),
+            "longest_path_total_avg_latency": summary.get(
+                "longest_path_total_avg_latency"
+            ),
+            "has_long_chain_issue": summary.get("has_long_chain_issue", False),
+            "pipe_services": summary.get("pipe_services", []),
+            "pipe_service_ratio": summary.get("pipe_service_ratio", 0.0),
+            "pipe_service_ratio_threshold": summary.get(
+                "pipe_service_ratio_threshold"
+            ),
+            "has_pipe_service_ratio_issue": summary.get(
+                "has_pipe_service_ratio_issue", False
+            ),
+            "co_deployed_pairs": summary.get("co_deployed_pairs", []),
+            "co_deploy_overlap_threshold": summary.get(
+                "co_deploy_overlap_threshold"
+            ),
+        }
+
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "summary": normalized,
+        }
+
+    def get_deployment_history(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        events = extra_attrs.get("deployment_history", []) or []
+
+        normalized = []
+        for event in events:
+            normalized.append(
+                {
+                    "service": event.get("service"),
+                    "action": event.get("action"),
+                    "version": event.get("version"),
+                    "deployed_at": event.get("deployed_at"),
+                    "success": event.get("success"),
+                }
+            )
+
+        normalized.sort(
+            key=lambda item: (
+                item.get("service") or "",
+                item.get("deployed_at") or "",
+            )
+        )
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(normalized),
+            "items": normalized,
         }
 
     def run(self, host: str = "0.0.0.0", port: int = 8000):

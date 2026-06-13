@@ -116,16 +116,35 @@ class K8sConfigSource(Processor):
                 # Expose pod-level security_context for K8sConfigAnalyzer
                 sec_ctx = {}
                 if pod_spec.security_context:
+                    pod_security_context = pod_spec.security_context
                     sec_ctx = {
-                        "run_as_non_root": pod_spec.security_context.run_as_non_root,
-                        "privileged": pod_spec.security_context.privileged,
-                        "allow_privilege_escalation": pod_spec.security_context.allow_privilege_escalation,
-                        "read_only_root_filesystem": pod_spec.security_context.read_only_root_filesystem,
+                        "run_as_non_root": getattr(
+                            pod_security_context, "run_as_non_root", None
+                        ),
                     }
-                    if pod_spec.security_context.capabilities:
+                    container_security_contexts = [
+                        c.security_context
+                        for c in (pod_spec.containers or [])
+                        if getattr(c, "security_context", None)
+                    ]
+                    if container_security_contexts:
+                        first_container_sec_ctx = container_security_contexts[0]
+                        sec_ctx["privileged"] = getattr(
+                            first_container_sec_ctx, "privileged", None
+                        )
+                        sec_ctx["allow_privilege_escalation"] = getattr(
+                            first_container_sec_ctx, "allow_privilege_escalation", None
+                        )
+                        sec_ctx["read_only_root_filesystem"] = getattr(
+                            first_container_sec_ctx, "read_only_root_filesystem", None
+                        )
+                    if container_security_contexts and getattr(
+                        container_security_contexts[0], "capabilities", None
+                    ):
+                        capabilities = container_security_contexts[0].capabilities
                         sec_ctx["capabilities"] = {
-                            "add": list(pod_spec.security_context.capabilities.add or []),
-                            "drop": list(pod_spec.security_context.capabilities.drop or []),
+                            "add": list(capabilities.add or []),
+                            "drop": list(capabilities.drop or []),
                         }
 
                 # Expose volumes for hostPath mount detection
@@ -162,8 +181,13 @@ class K8sConfigSource(Processor):
             }
         if probe.tcp_socket:
             d["tcpSocket"] = {"port": probe.tcp_socket.port}
-        if probe.exec_:
-            d["exec"] = {"command": list(probe.exec_.command or [])}
+        # Kubernetes Python client versions expose exec probes as either
+        # `_exec` or `exec_`, so support both to avoid runtime crashes.
+        exec_action = getattr(probe, "_exec", None)
+        if exec_action is None:
+            exec_action = getattr(probe, "exec_", None)
+        if exec_action:
+            d["exec"] = {"command": list(exec_action.command or [])}
         d["initialDelaySeconds"] = probe.initial_delay_seconds
         d["periodSeconds"] = probe.period_seconds
         return d

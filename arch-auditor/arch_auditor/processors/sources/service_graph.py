@@ -63,9 +63,19 @@ class ServiceGraphSource(Processor):
         try:
             now_ts = int(time.time() * 1000)
             end_ts = now_ts
-            url = f"{self.jaeger_url}/api/dependencies?lookback={self.lookback_ms}&endTs={end_ts}"
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
+            response = None
+            for base_url in self._candidate_jaeger_urls():
+                url = f"{base_url}/api/dependencies?lookback={self.lookback_ms}&endTs={end_ts}"
+                candidate = requests.get(url, timeout=10)
+                candidate.raise_for_status()
+                if "application/json" in (candidate.headers.get("Content-Type", "")):
+                    response = candidate
+                    break
+
+            if response is None:
+                raise requests.exceptions.RequestException(
+                    "Failed to locate Jaeger JSON dependencies endpoint"
+                )
 
             dependencies = response.json()
             edges = []
@@ -111,6 +121,14 @@ class ServiceGraphSource(Processor):
                     message=f"Unexpected error while processing Jaeger dependencies: {e}",
                 )
             )
+
+    def _candidate_jaeger_urls(self) -> list[str]:
+        base = (self.jaeger_url or "").rstrip("/")
+        if base.endswith("/jaeger/ui"):
+            return [base, base.removesuffix("/ui"), base.removesuffix("/jaeger/ui")]
+        if base.endswith("/jaeger"):
+            return [f"{base}/ui", base, base.removesuffix("/jaeger")]
+        return [f"{base}/jaeger/ui", base]
 
     @staticmethod
     def has_visualization() -> bool:

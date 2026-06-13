@@ -465,6 +465,8 @@
     MISSING_RESOURCE_REQUESTS: "缺少资源请求",
     MISSING_LIVENESS_PROBE: "缺少存活探针",
     MISSING_READINESS_PROBE: "缺少就绪探针",
+    MISSING_RESOURCE_QUOTA: "缺少资源配额",
+    HOST_PATH_MOUNT: "挂载本地绝对路径",
   };
 
   const fixSuggestionMap = {
@@ -478,11 +480,14 @@
     MISSING_RESOURCE_REQUESTS: "补充 resources.requests",
     MISSING_LIVENESS_PROBE: "补充 livenessProbe 配置",
     MISSING_READINESS_PROBE: "补充 readinessProbe 配置",
+    MISSING_RESOURCE_QUOTA: "为命名空间补充 ResourceQuota 配置",
+    HOST_PATH_MOUNT: "避免使用 hostPath，优先改为 PVC、ConfigMap 或 Secret 挂载",
   };
 
   const resourceIconMap = {
     deployment: "dns",
     pod: "memory",
+    namespace: "inventory_2",
     statefulset: "storage",
     daemonset: "dns",
     job: "task_alt",
