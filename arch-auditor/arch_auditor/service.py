@@ -70,6 +70,9 @@ class ArchAuditService:
         api.get("/monolithic-services")(self.get_monolithic_services)
         api.get("/over-decomposition")(self.get_over_decomposition)
         api.get("/deployment-history")(self.get_deployment_history)
+        api.get("/config-drift")(self.get_config_drift)
+        api.get("/maintainability")(self.get_maintainability)
+        api.get("/isolation")(self.get_isolation)
 
         if self.priority_manager is not None:
             api.get("/priorities")(self.list_priorities)
@@ -494,16 +497,26 @@ class ArchAuditService:
     def get_deployment_history(self):
         extra_attrs = self.arch_auditor.system_state.extra_attrs
         events = extra_attrs.get("deployment_history", []) or []
+        source = extra_attrs.get("deployment_history_source")
 
         normalized = []
         for event in events:
             normalized.append(
                 {
                     "service": event.get("service"),
+                    "namespace": event.get("namespace"),
+                    "resource": event.get("resource"),
+                    "kind": event.get("kind"),
                     "action": event.get("action"),
                     "version": event.get("version"),
                     "deployed_at": event.get("deployed_at"),
                     "success": event.get("success"),
+                    "event_source": event.get("event_source"),
+                    "verb": event.get("verb"),
+                    "username": event.get("username"),
+                    "user_agent": event.get("user_agent"),
+                    "source_ip": event.get("source_ip"),
+                    "change_cause": event.get("change_cause"),
                 }
             )
 
@@ -515,8 +528,127 @@ class ArchAuditService:
         )
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
+            "source": source,
             "count": len(normalized),
             "items": normalized,
+        }
+
+    def get_config_drift(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        summary = extra_attrs.get("config_drift_summary", []) or []
+
+        normalized = []
+        for item in summary:
+            normalized.append(
+                {
+                    "resource": item.get("resource"),
+                    "namespace": item.get("namespace"),
+                    "kind": item.get("kind"),
+                    "name": item.get("name"),
+                    "revision": item.get("revision"),
+                    "latest_changed_at": item.get("latest_changed_at"),
+                    "latest_changed_by": item.get("latest_changed_by"),
+                    "manager": item.get("manager"),
+                    "reason": item.get("reason"),
+                    "change_cause": item.get("change_cause"),
+                    "event_count": item.get("event_count", 0),
+                    "age_hours": item.get("age_hours"),
+                    "drift_threshold_hours": item.get("drift_threshold_hours"),
+                    "is_manual_change": item.get("is_manual_change", False),
+                    "is_drifted": item.get("is_drifted", False),
+                    "verb": item.get("verb"),
+                    "username": item.get("username"),
+                    "user_agent": item.get("user_agent"),
+                    "source_ip": item.get("source_ip"),
+                    "event_source": item.get("event_source"),
+                    "selected_event_strategy": item.get("selected_event_strategy"),
+                    "latest_observed_at": item.get("latest_observed_at"),
+                    "latest_observed_by": item.get("latest_observed_by"),
+                    "latest_observed_manager": item.get(
+                        "latest_observed_manager"
+                    ),
+                    "latest_observed_reason": item.get("latest_observed_reason"),
+                    "latest_observed_verb": item.get("latest_observed_verb"),
+                }
+            )
+
+        normalized.sort(key=lambda item: item.get("resource") or "")
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(normalized),
+            "items": normalized,
+        }
+
+    def get_maintainability(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        summary = extra_attrs.get("maintainability_summary", {}) or {}
+
+        normalized = {
+            "startup_threshold_seconds": summary.get("startup_threshold_seconds"),
+            "rollback_ratio_threshold": summary.get("rollback_ratio_threshold"),
+            "low_deploy_frequency_ratio": summary.get(
+                "low_deploy_frequency_ratio"
+            ),
+            "co_deploy_overlap_threshold": summary.get(
+                "co_deploy_overlap_threshold"
+            ),
+            "min_co_deploy_events_per_service": summary.get(
+                "min_co_deploy_events_per_service"
+            ),
+            "deployment_history_source": summary.get(
+                "deployment_history_source"
+            ),
+            "history_observability": summary.get("history_observability", {}),
+            "startup_issues": sorted(
+                summary.get("startup_issues", []),
+                key=lambda item: (
+                    item.get("service") or "",
+                    item.get("pod") or "",
+                ),
+            ),
+            "deploy_frequency_issues": sorted(
+                summary.get("deploy_frequency_issues", []),
+                key=lambda item: item.get("service") or "",
+            ),
+            "rollback_issues": sorted(
+                summary.get("rollback_issues", []),
+                key=lambda item: item.get("service") or "",
+            ),
+            "co_deployment_issues": sorted(
+                summary.get("co_deployment_issues", []),
+                key=lambda item: (
+                    item.get("service_a") or "",
+                    item.get("service_b") or "",
+                ),
+            ),
+        }
+
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "summary": normalized,
+        }
+
+    def get_isolation(self):
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        summary = extra_attrs.get("isolation_summary", {}) or {}
+
+        normalized = {
+            "critical_priority_threshold": summary.get(
+                "critical_priority_threshold"
+            ),
+            "critical_services": summary.get("critical_services", []),
+            "placements": summary.get("placements", []),
+            "co_located_service_groups": summary.get(
+                "co_located_service_groups", []
+            ),
+            "single_zone_services": summary.get("single_zone_services", []),
+            "service_zone_spread": summary.get("service_zone_spread", []),
+            "node_details": summary.get("node_details", {}),
+        }
+
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "summary": normalized,
         }
 
     def run(self, host: str = "0.0.0.0", port: int = 8000):
@@ -541,7 +673,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    with open(args.config, "r") as f:
+    with open(args.config, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
     if config is None:
         config = {}

@@ -115,3 +115,50 @@ def test_no_p0_services_silent():
     auditor = ArchAuditor(config, reporter=reporter)
     auditor.invoke()
     assert len(reporter.messages) == 0
+
+
+def test_isolation_summary_written():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [("svc-a", "svc-b")],
+            },
+            "ServicePrioritySource": {"type": "InMemory", "default_priority": 3},
+            "K8sConfigSource": {
+                "type": "Mock",
+                "k8s_configs": {
+                    "deployments": [],
+                    "pods": [
+                        {
+                            "name": "svc-a-pod1",
+                            "namespace": "default",
+                            "node_name": "node-1",
+                            "zone": "zone-a",
+                            "labels": {"app": "svc-a"},
+                        },
+                        {
+                            "name": "svc-b-pod1",
+                            "namespace": "default",
+                            "node_name": "node-1",
+                            "zone": "zone-a",
+                            "labels": {"app": "svc-b"},
+                        },
+                    ],
+                    "node_zones": {"node-1": "zone-a"},
+                },
+            },
+            "IsolationAnalyzer": {},
+        }
+    }
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.priority_manager.set_priority("svc-a", 0)
+    auditor.priority_manager.set_priority("svc-b", 0)
+    auditor.invoke()
+
+    summary = auditor.system_state.extra_attrs["isolation_summary"]
+    assert summary["critical_services"] == ["svc-a", "svc-b"]
+    assert len(summary["co_located_service_groups"]) == 1
+    assert len(summary["service_zone_spread"]) == 2
+    assert "node_details" in summary

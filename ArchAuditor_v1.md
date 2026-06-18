@@ -576,3 +576,461 @@ message = "No circular dependencies detected."
 >
 > - 问题 1、3、5 已具备较直观的前端展示
 > - 问题 2、4、6、7 已具备结构化接口和审计日志验证方式
+
+
+
+---6.18 工作---
+
+## 配置漂移
+
+#### 接口：
+
+`/api/config-drift`
+
+```
+Get-Api "/api/config-drift" | ConvertTo-Json -Depth 8
+```
+
+#### 返回结构：
+
+```
+                                                {
+                      "resource":  "configmap/default/flagd-config",////是哪个资源
+                      "namespace":  "default",
+                      "kind":  "Configmap",
+                      "name":  "flagd-config",
+                      "revision":  "99342",//版本修订号
+                      "latest_changed_at":  "2026-06-17T18:14:00.245811+00:00",//最近变更时间
+                      "latest_changed_by":  "user",//谁改的
+                      "manager":  "minikube-user",//写这个对象的管理者是谁
+                      "reason":  "manual-looking audit actor \u0027minikube-user\u0027",
+                      "change_cause":  "",
+                      "event_count":  1,
+                      "age_hours":  8.6,//这次变更持续了多少小时
+                      "drift_threshold_hours":  24,
+                      "is_manual_change":  true,
+                      "is_drifted":  false,
+                      "verb":  "patch",
+                      "username":  "minikube-user",
+                      "user_agent":  "kubectl.exe/v1.32.2 (windows/amd64) kubernetes/67a30c0",
+                      "source_ip":  "192.168.49.1",
+                      "event_source":  "k8s_audit_log",
+                      "selected_event_strategy":  "latest_manual_change",
+                      "latest_observed_at":  "2026-06-17T18:14:00.245811+00:00",
+                      "latest_observed_by":  "user",
+                      "latest_observed_manager":  "minikube-user",
+                      "latest_observed_reason":  "manual-looking audit actor \u0027minikube-user\u0027",
+                      "latest_observed_verb":  "patch"
+                  },
+                  {
+                      "resource":  "deployment/default/accounting",
+                      "namespace":  "default",
+                      "kind":  "Deployment.apps",
+                      "name":  "accounting",
+                      "revision":  "",
+                      "latest_changed_at":  "2026-06-17T13:23:05.039849+00:00",
+                      "latest_changed_by":  "user",
+                      "manager":  "minikube-user",
+                      "reason":  "manual-looking audit actor \u0027minikube-user\u0027",
+                      "change_cause":  "",
+                      "event_count":  1,
+                      "age_hours":  13.45,
+                      "drift_threshold_hours":  24,
+                      "is_manual_change":  true,
+                      "is_drifted":  false,
+                      "verb":  "patch",
+                      "username":  "minikube-user",
+                      "user_agent":  "kubectl.exe/v1.32.2 (windows/amd64) kubernetes/67a30c0",
+                      "source_ip":  "192.168.49.1",
+                      "event_source":  "k8s_audit_log",
+                      "selected_event_strategy":  "latest_manual_change",
+                      "latest_observed_at":  "2026-06-17T13:23:05.039849+00:00",
+                      "latest_observed_by":  "user",
+                      "latest_observed_manager":  "minikube-user",
+                      "latest_observed_reason":  "manual-looking audit actor \u0027minikube-user\u0027",
+                      "latest_observed_verb":  "patch"
+                  },
+                  {
+                      "resource":  "deployment/default/cart",
+                      "namespace":  "default",
+                      "kind":  "Deployment.apps",
+                      "name":  "cart",
+                      "revision":  "",
+                      "latest_changed_at":  "2026-06-17T13:23:06.035563+00:00",
+                      "latest_changed_by":  "user",
+                      "manager":  "minikube-user",
+                      "reason":  "manual-looking audit actor \u0027minikube-user\u0027",
+                      "change_cause":  "",
+                      "event_count":  1,
+                      "age_hours":  13.45,
+                      "drift_threshold_hours":  24,
+                      "is_manual_change":  true,
+                      "is_drifted":  false,
+                      "verb":  "patch",
+                      "username":  "minikube-user",
+                      "user_agent":  "kubectl.exe/v1.32.2 (windows/amd64) kubernetes/67a30c0",
+                      "source_ip":  "192.168.49.1",
+                      "event_source":  "k8s_audit_log",
+                      "selected_event_strategy":  "latest_manual_change",
+                      "latest_observed_at":  "2026-06-17T13:23:06.035563+00:00",
+                      "latest_observed_by":  "user",
+                      "latest_observed_manager":  "minikube-user",
+                      "latest_observed_reason":  "manual-looking audit actor \u0027minikube-user\u0027",
+                      "latest_observed_verb":  "patch"
+                  },
+```
+
+## 丧失可维护性
+
+#### 接口：
+
+`/api/maintainability`
+
+```
+Get-Api "/api/maintainability" | ConvertTo-Json -Depth 8
+```
+
+#### 返回结构：
+
+startup_issues: 启动/扩容时间超过30s
+
+```
+ "startup_issues":  [
+                      {
+                                               "service":  "cart",
+                                               "pod":  "cart-5756f5d76f-qmkf4",
+                                               "namespace":  "default",
+                                               "startup_seconds":  33.0,//创建到运行的启动时间
+                                               "threshold_seconds":  30
+                                           },
+                                           {
+                                               "service":  "checkout",
+                                               "pod":  "checkout-7c7fc69749-ncmrd",
+                                               "namespace":  "default",
+                                               "startup_seconds":  109.0,
+                                               "threshold_seconds":  30
+                                           },
+                                           {
+                                               "service":  "flagd",
+                                               "pod":  "flagd-c98989985-6ktr5",
+                                               "namespace":  "default",
+                                               "startup_seconds":  77.0,
+                                               "threshold_seconds":  30
+                                           },
+                       ...
+```
+
+deployment_frequency_issues: 服务部署频率变低
+
+```
+                     ],
+                    "deploy_frequency_issues":  [
+                                                    {
+                                                        "service":  "jaeger",
+                                                        "deploy_count":  1,
+                                                        "cluster_median_deploy_count":  3.0,
+                                                        "low_deploy_frequency_ratio":  0.5,
+                                                        "threshold_count":  1.5,
+                                                        "first_deployed_at":  "2026-06-18T03:32:37+00:00",
+                                                        "latest_deployed_at":  "2026-06-18T03:32:37+00:00"
+                                                    },
+                                                    {
+                                                        "service":  "postgresql",
+                                                        "deploy_count":  1,
+                                                        "cluster_median_deploy_count":  3.0,
+                                                        "low_deploy_frequency_ratio":  0.5,
+                                                        "threshold_count":  1.5,
+                                                        "first_deployed_at":  "2026-06-18T03:32:40+00:00",
+                                                        "latest_deployed_at":  "2026-06-18T03:32:40+00:00"
+                                                    },
+                                                    {
+                                                        "service":  "valkey-cart",
+                                                        "deploy_count":  1,
+                                                        "cluster_median_deploy_count":  3.0,
+                                                        "low_deploy_frequency_ratio":  0.5,
+                                                        "threshold_count":  1.5,
+                                                        "first_deployed_at":  "2026-06-18T03:32:41+00:00",
+                                                        "latest_deployed_at":  "2026-06-18T03:32:41+00:00"
+                                                    }
+                                                ],
+```
+
+rollback_issues：版本变更后异常回滚比例高，需要发生多次部署/回滚来触发
+
+```
+"rollback_issues":  [
+                                            {
+                                                "service":  "frontend-proxy",
+                                                "deploy_count":  2,
+                                                "rollback_count":  1,
+                                                "total_events":  3,
+                                                "rollback_ratio":  0.3333,
+                                                "threshold":  0.25
+                                            }
+                                        ],
+```
+
+co_deployment_issues：协同部署，耦合程度高，也需要服务至少3次deploy才能判断，也就是三次以上协同部署。测试的时候采用多次滚动部署`frontend` `checkout` `payment`服务：
+
+```
+kubectl rollout restart deployment/frontend -n default
+kubectl rollout restart deployment/checkout -n default
+kubectl rollout restart deployment/payment -n default
+```
+
+结果如下：
+
+```
+"co_deployment_issues":  [
+                                                 {
+                                                     "service_a":  "checkout",
+                                                     "service_b":  "frontend",
+                                                     "deploy_events_a":  4,
+                                                     "deploy_events_b":  3,
+                                                     "overlap_ratio":  1.0,
+                                                     "threshold":  0.8,
+                                                     "min_events_per_service":  3
+                                                 },
+                                                 {
+                                                     "service_a":  "checkout",
+                                                     "service_b":  "payment",
+                                                     "deploy_events_a":  4,
+                                                     "deploy_events_b":  3,
+                                                     "overlap_ratio":  1.0,
+                                                     "threshold":  0.8,
+                                                     "min_events_per_service":  3
+                                                 },
+                                                 {
+                                                     "service_a":  "frontend",
+                                                     "service_b":  "payment",
+                                                     "deploy_events_a":  3,
+                                                     "deploy_events_b":  3,
+                                                     "overlap_ratio":  1.0,
+                                                     "threshold":  0.8,
+                                                     "min_events_per_service":  3
+                                                 }
+                                             ]
+                }
+```
+
+## 缺少物理隔离
+
+```
+Get-Api "/api/isolation" | ConvertTo-Json -Depth 8
+```
+
+当前返回：
+
+```
+ "summary":  {
+                    "critical_priority_threshold":  0,
+                    "critical_services":  [
+                                              "checkout",
+                                              "frontend",
+                                              "payment"   //手动配置的高优先级服务
+                                          ],
+                    "placements":  [//这个是展示这些高优先级服务配置的node和zone，分别在配置文件里面修改副本数为2 3 2
+                                       {
+                                           "service":  "checkout",
+                                           "pod":  "checkout-7c7fc69749-ncmrd",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m03",
+                                           "zone":  "az-b",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "checkout",
+                                                          "app.kubernetes.io/name":  "checkout",
+                                                          "opentelemetry.io/name":  "checkout",
+                                                          "pod-template-hash":  "7c7fc69749"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "checkout",
+                                           "pod":  "checkout-7c7fc69749-xrhbh",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m02",
+                                           "zone":  "az-a",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "checkout",
+                                                          "app.kubernetes.io/name":  "checkout",
+                                                          "opentelemetry.io/name":  "checkout",
+                                                          "pod-template-hash":  "7c7fc69749",
+                                                          "topology.kubernetes.io/zone":  "az-a"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "frontend",
+                                           "pod":  "frontend-74547fb9f8-g69v8",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m03",
+                                           "zone":  "az-b",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "frontend",
+                                                          "app.kubernetes.io/name":  "frontend",
+                                                          "opentelemetry.io/name":  "frontend",
+                                                          "pod-template-hash":  "74547fb9f8",
+                                                          "topology.kubernetes.io/zone":  "az-b"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "frontend",
+                                           "pod":  "frontend-74547fb9f8-s7m6b",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo",
+                                           "zone":  "az-a",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "frontend",
+                                                          "app.kubernetes.io/name":  "frontend",
+                                                          "opentelemetry.io/name":  "frontend",
+                                                          "pod-template-hash":  "74547fb9f8"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "frontend",
+                                           "pod":  "frontend-74547fb9f8-xlj44",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m05",
+                                           "zone":  "az-c",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "frontend",
+                                                          "app.kubernetes.io/name":  "frontend",
+                                                          "opentelemetry.io/name":  "frontend",
+                                                          "pod-template-hash":  "74547fb9f8",
+                                                          "topology.kubernetes.io/zone":  "az-c"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "payment",
+                                           "pod":  "payment-68ccff6c8c-dpmgj",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m05",
+                                           "zone":  "az-c",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "payment",
+                                                          "app.kubernetes.io/name":  "payment",
+                                                          "opentelemetry.io/name":  "payment",
+                                                          "pod-template-hash":  "68ccff6c8c"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "payment",
+                                           "pod":  "payment-68ccff6c8c-r9wrn",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m02",
+                                           "zone":  "az-a",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "payment",
+                                                          "app.kubernetes.io/name":  "payment",
+                                                          "opentelemetry.io/name":  "payment",
+                                                          "pod-template-hash":  "68ccff6c8c",
+                                                          "topology.kubernetes.io/zone":  "az-a"
+                                                      }
+                                       }
+                                   ],
+```
+
+这一部分对应问题1。我先手动给服务`checkout`, `frontend`, `payment`配置为P0优先级，当前测试时部署在了5个Node上，但严格意义上都属于一台物理机。所以这里演示使用的是`MiniKube`里面的模拟多节点环境。
+
+```
+ "single_zone_services":  [
+
+                                             ],
+                    "service_zone_spread":  [
+                                                {
+                                                    "service":  "checkout",
+                                                    "replica_nodes":  [
+                                                                          "arch-demo-m02",
+                                                                          "arch-demo-m03"
+                                                                      ],
+                                                    "replica_zones":  [
+                                                                          "az-a",
+                                                                          "az-b"
+                                                                      ],
+                                                    "replica_node_count":  2,
+                                                    "replica_zone_count":  2
+                                                },
+                                                {
+                                                    "service":  "frontend",
+                                                    "replica_nodes":  [
+                                                                          "arch-demo",
+                                                                          "arch-demo-m03",
+                                                                          "arch-demo-m05"
+                                                                      ],
+                                                    "replica_zones":  [
+                                                                          "az-a",
+                                                                          "az-b",
+                                                                          "az-c"
+                                                                      ],
+                                                    "replica_node_count":  3,
+                                                    "replica_zone_count":  3
+                                                },
+                                                {
+                                                    "service":  "payment",
+                                                    "replica_nodes":  [
+                                                                          "arch-demo-m02",
+                                                                          "arch-demo-m05"
+                                                                      ],
+                                                    "replica_zones":  [
+                                                                          "az-a",
+                                                                          "az-c"
+                                                                      ],
+                                                    "replica_node_count":  2,
+                                                    "replica_zone_count":  2
+                                                }
+                                            ],
+```
+
+对应问题2，也就是关键服务副本缺少跨可用区配置。当前测试显然没有部署在 不同可用区 的 不同机器上，本地`Minikube`多节点也没有`AZ`概念，所以这里其实是手动给不同节点加了模拟AZ标签，配置如下：
+
+```
+arch-demo      az-a
+arch-demo-m02  az-a
+arch-demo-m03  az-b
+arch-demo-m04  az-b
+arch-demo-m05  az-c
+```
+
+
+
+当前涉及优先级的架构问题包括：违反依赖关系（高优先级不能强依赖低优先级），不合理资源利用（高优先级没有提前设定CPU/memory的request），缺少物理隔离（P0级别服务的pod在同一个物理节点）
+
+- 违反依赖关系：可以改为一个服务被大量上游服务调用，入度很高，属于核心服务或者基础服务，但是却强依赖于一个被很少的服务调用的边缘服务，则出现了违反依赖关系
+  - 可用`page rank`算法，也就是计算服务`pagerank`，一个服务被更多核心业务逻辑调用的话，这个值越高，但是如果他强依赖于一个`pagerank`很低的服务则可能有问题。结合高`in-degee`一起判断或许更好。
+  - 查到一个图网络库`NetWork`
+  
+  目前已修改代码并验证，当前采用的判定逻辑+阈值是：
+  
+  ```
+  1. 先判定一个调用边是不是strong，对每个 parent -> child 边
+  - 调用量call_count>100
+  - 计算皮尔逊相关系数，>0.7
+  标记为strong
+  
+  再判断strong边是否违反依赖关系，改掉之前用优先级判断，先看source是不是核心服务：
+  
+  2. 计算pagerank和in_degree，
+  - source_indegree >= min_core_indegree  //高入度
+  - source_pagerank >= high_pagerank_threshold  //page_rank更高
+  这里high_pagerank_threshold 不是固定数，是当前图的 70 分位数
+  
+  3. 再判断target是不是边缘服务：
+  - target_indegree <= max_edge_indegree
+  - target_pagerank <= low_pagerank_threshold
+  这里low_pagerank_threshold 是当前图的 25 分位数
+  
+  最后还要判断，source_indgree>=target_indgree
+  满足以上全部条件可以判定违反依赖关系
+  ```
+  
+  测试返回：
+  
+  ```
+  PS E:\Arch-project> (Get-Api "/api/reports") | Where-Object { $_ -like "*PriorityCheckAnalyzer*" }
+  [2026-06-18 19:07:52] [WARNING] from PriorityCheckAnalyzer: Dependency hierarchy violation: core service 'checkout' (pagerank: 0.1328, indegree: 1) depends strongly on edge service 'currency' (pagerank: 0.0222, indegree: 1).
+  [2026-06-18 19:07:52] [WARNING] from PriorityCheckAnalyzer: Dependency hierarchy violation: core service 'checkout' (pagerank: 0.1328, indegree: 1) depends strongly on edge service 'email' (pagerank: 0.0222, indegree: 1).
+  ```
+  
+  
+- 不合理资源利用：用高优先级/核心服务判断是否需要配置request不太合理
+  - 区分不同的trace，两类，一类是同步调用链，也就是会影响用户的响应时间，在这一条可以被外部网关触发的同步调用树上的所有节点，都该配置request。
+  - 而只出现在异步调用链，不涉及用户响应时间，完全后台消费型的服务，可以不配request；但是如果QPS很高，>>中位数，也需要配。
+- 缺少物理隔离：这里的p0服务判定逻辑或许可以和违反依赖关系一样，判断这些是不是配置在了同一个node。

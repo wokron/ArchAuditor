@@ -1,6 +1,9 @@
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
 from typing import Any
+from pathlib import Path
+import tempfile
+import yaml
 
 try:
     from kubernetes import client, config
@@ -24,6 +27,9 @@ class K8sConfigSource(Processor):
         self.k8s_config = config_dict or {}
         source_type = self.k8s_config.get("type", "K8s")
         self.source_type = source_type
+        self.request_timeout_seconds = int(
+            self.k8s_config.get("request_timeout_seconds", 10)
+        )
         self.namespaces = self.k8s_config.get(
             "namespaces", 
             [self.k8s_config.get("namespace", "default")]
@@ -38,12 +44,12 @@ class K8sConfigSource(Processor):
         try:
             kubeconfig_path = self.k8s_config.get("kubeconfig", None)
             if kubeconfig_path:
-                config.load_kube_config(config_file=kubeconfig_path)
+                _load_kube_config_resilient(kubeconfig_path)
             else:
                 try:
                     config.load_incluster_config()
                 except config.ConfigException:
-                    config.load_kube_config()
+                    _load_kube_config_resilient()
             
             self.v1 = client.CoreV1Api()
             self.apps_v1 = client.AppsV1Api()
@@ -74,6 +80,7 @@ class K8sConfigSource(Processor):
             "hpa": [],
             "resource_quotas": [],
             "node_zones": {},
+            "node_details": {},
         }
 
         # Collect node -> zone mapping first (cluster-wide, not per namespace)
@@ -95,7 +102,9 @@ class K8sConfigSource(Processor):
 
     def _fetch_deployments(self, ns: str, k8s_configs: dict) -> None:
         try:
-            deps = self.apps_v1.list_namespaced_deployment(ns)
+            deps = self.apps_v1.list_namespaced_deployment(
+                ns, _request_timeout=self.request_timeout_seconds
+            )
             for dep in deps.items:
                 pod_spec = dep.spec.template.spec
                 containers = []
@@ -164,10 +173,12 @@ class K8sConfigSource(Processor):
                     "ready_replicas": dep.status.ready_replicas or 0,
                     "containers": containers,
                     "labels": dict(dep.metadata.labels or {}),
+                    "annotations": dict(dep.metadata.annotations or {}),
+                    "selector": dict(dep.spec.selector.match_labels or {}),
                     "securityContext": sec_ctx,
                     "volumes": volumes,
                 })
-        except ApiException as e:
+        except Exception as e:
             self._report_error("Deployments", ns, e)
 
     @staticmethod
@@ -194,7 +205,9 @@ class K8sConfigSource(Processor):
 
     def _fetch_services(self, ns: str, k8s_configs: dict) -> None:
         try:
-            svcs = self.v1.list_namespaced_service(ns)
+            svcs = self.v1.list_namespaced_service(
+                ns, _request_timeout=self.request_timeout_seconds
+            )
             for svc in svcs.items:
                 k8s_configs["services"].append({
                     "name": svc.metadata.name,
@@ -205,12 +218,14 @@ class K8sConfigSource(Processor):
                               for p in (svc.spec.ports or [])],
                     "selector": dict(svc.spec.selector or {}),
                 })
-        except ApiException as e:
+        except Exception as e:
             self._report_error("Services", ns, e)
 
     def _fetch_pods(self, ns: str, k8s_configs: dict) -> None:
         try:
-            pods = self.v1.list_namespaced_pod(ns)
+            pods = self.v1.list_namespaced_pod(
+                ns, _request_timeout=self.request_timeout_seconds
+            )
             node_zones = k8s_configs.get("node_zones", {})
             for pod in pods.items:
                 restart_count = sum(
@@ -242,25 +257,30 @@ class K8sConfigSource(Processor):
                     "creation_time": creation_time,
                     "ready_time": ready_time,
                     "labels": dict(pod.metadata.labels or {}),
+                    "annotations": dict(pod.metadata.annotations or {}),
                 })
-        except ApiException as e:
+        except Exception as e:
             self._report_error("Pods", ns, e)
 
     def _fetch_configmaps(self, ns: str, k8s_configs: dict) -> None:
         try:
-            cms = self.v1.list_namespaced_config_map(ns)
+            cms = self.v1.list_namespaced_config_map(
+                ns, _request_timeout=self.request_timeout_seconds
+            )
             for cm in cms.items:
                 k8s_configs["configmaps"].append({
                     "name": cm.metadata.name,
                     "namespace": cm.metadata.namespace,
                     "data_keys": list((cm.data or {}).keys()),
                 })
-        except ApiException as e:
+        except Exception as e:
             self._report_error("ConfigMaps", ns, e)
 
     def _fetch_secrets(self, ns: str, k8s_configs: dict) -> None:
         try:
-            secrets = self.v1.list_namespaced_secret(ns)
+            secrets = self.v1.list_namespaced_secret(
+                ns, _request_timeout=self.request_timeout_seconds
+            )
             for s in secrets.items:
                 k8s_configs["secrets"].append({
                     "name": s.metadata.name,
@@ -268,12 +288,14 @@ class K8sConfigSource(Processor):
                     "type": s.type,
                     "data_keys": list((s.data or {}).keys()),
                 })
-        except ApiException as e:
+        except Exception as e:
             self._report_error("Secrets", ns, e)
 
     def _fetch_hpa(self, ns: str, k8s_configs: dict) -> None:
         try:
-            hpas = self.autoscaling_v1.list_namespaced_horizontal_pod_autoscaler(ns)
+            hpas = self.autoscaling_v1.list_namespaced_horizontal_pod_autoscaler(
+                ns, _request_timeout=self.request_timeout_seconds
+            )
             for hpa in hpas.items:
                 k8s_configs["hpa"].append({
                     "name": hpa.metadata.name,
@@ -283,12 +305,14 @@ class K8sConfigSource(Processor):
                     "max_replicas": hpa.spec.max_replicas,
                     "current_replicas": hpa.status.current_replicas,
                 })
-        except ApiException as e:
+        except Exception as e:
             self._report_error("HPA", ns, e)
 
     def _fetch_resource_quotas(self, ns: str, k8s_configs: dict) -> None:
         try:
-            quotas = self.v1.list_namespaced_resource_quota(ns)
+            quotas = self.v1.list_namespaced_resource_quota(
+                ns, _request_timeout=self.request_timeout_seconds
+            )
             for q in quotas.items:
                 k8s_configs["resource_quotas"].append({
                     "name": q.metadata.name,
@@ -296,13 +320,13 @@ class K8sConfigSource(Processor):
                     "hard": dict(q.spec.hard or {}),
                     "used": dict(q.status.used or {}),
                 })
-        except ApiException as e:
+        except Exception as e:
             self._report_error("ResourceQuotas", ns, e)
 
     def _fetch_nodes(self, k8s_configs: dict) -> None:
         """Collect node_name -> zone mapping for isolation analysis."""
         try:
-            nodes = self.v1.list_node()
+            nodes = self.v1.list_node(_request_timeout=self.request_timeout_seconds)
             zone_label = "topology.kubernetes.io/zone"
             for n in nodes.items:
                 name = n.metadata.name
@@ -312,14 +336,20 @@ class K8sConfigSource(Processor):
                 if not zone:
                     zone = labels.get("failure-domain.beta.kubernetes.io/zone", "")
                 k8s_configs["node_zones"][name] = zone
-        except ApiException as e:
+                k8s_configs["node_details"][name] = {
+                    "name": name,
+                    "zone": zone,
+                    "labels": dict(labels),
+                }
+        except Exception as e:
             self._report_error("Nodes", "*", e)
 
     def _report_error(self, resource_type: str, ns: str, error) -> None:
+        reason = getattr(error, "reason", str(error))
         self.context.reporter.report(ReportMessage(
             self.name(),
             ReportType.WARNING,
-            f" {resource_type}  failed  ({ns}): {error.reason}"
+            f" {resource_type}  failed  ({ns}): {reason}"
         ))
 
     @staticmethod
@@ -328,3 +358,78 @@ class K8sConfigSource(Processor):
 
     def visualize(self):
         pass
+
+
+def _load_kube_config_resilient(config_file: str | None = None) -> None:
+    """Load kubeconfig while tolerating Windows home paths with non-ASCII chars.
+
+    Some Python Kubernetes client versions mis-handle file-based certificate paths
+    on Windows. To avoid that, rewrite the active kubeconfig in-memory so the
+    current cluster/user use inline base64 data instead of local file paths.
+    """
+    target = config_file or str(Path.home() / ".kube" / "config")
+    kubeconfig = yaml.safe_load(Path(target).read_text(encoding="utf-8"))
+    if not kubeconfig:
+        raise config.ConfigException("Invalid kube-config file. No configuration found.")
+
+    current_context_name = kubeconfig.get("current-context")
+    contexts = kubeconfig.get("contexts") or []
+    clusters = kubeconfig.get("clusters") or []
+    users = kubeconfig.get("users") or []
+
+    context_entry = next(
+        (item for item in contexts if item.get("name") == current_context_name),
+        None,
+    )
+    if context_entry is None:
+        raise config.ConfigException(
+            f"Invalid kube-config file. Context '{current_context_name}' not found."
+        )
+
+    cluster_name = (context_entry.get("context") or {}).get("cluster")
+    user_name = (context_entry.get("context") or {}).get("user")
+    cluster_entry = next(
+        (item for item in clusters if item.get("name") == cluster_name),
+        None,
+    )
+    user_entry = next((item for item in users if item.get("name") == user_name), None)
+    if cluster_entry is None or user_entry is None:
+        raise config.ConfigException(
+            "Invalid kube-config file. Active cluster/user could not be resolved."
+        )
+
+    cluster = cluster_entry.setdefault("cluster", {})
+    user = user_entry.setdefault("user", {})
+    base_dir = Path(target).resolve().parent
+
+    _inline_file_field(cluster, "certificate-authority", "certificate-authority-data", base_dir)
+    _inline_file_field(user, "client-certificate", "client-certificate-data", base_dir)
+    _inline_file_field(user, "client-key", "client-key-data", base_dir)
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".yaml", delete=False, encoding="utf-8"
+    ) as tmp:
+        yaml.safe_dump(kubeconfig, tmp, allow_unicode=True, sort_keys=False)
+        temp_path = tmp.name
+
+    config.load_kube_config(config_file=temp_path)
+
+
+def _inline_file_field(
+    section: dict, path_key: str, data_key: str, base_dir: Path
+) -> None:
+    if section.get(data_key):
+        return
+    raw_path = section.get(path_key)
+    if not raw_path:
+        return
+    file_path = Path(raw_path)
+    if not file_path.is_absolute():
+        file_path = (base_dir / file_path).resolve()
+    if not file_path.exists():
+        raise config.ConfigException(f"File does not exist: {file_path}")
+
+    import base64
+
+    section[data_key] = base64.b64encode(file_path.read_bytes()).decode("ascii")
+    section.pop(path_key, None)

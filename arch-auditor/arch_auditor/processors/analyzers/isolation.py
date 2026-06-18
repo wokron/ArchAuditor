@@ -1,15 +1,11 @@
+from collections import defaultdict
+
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
-from collections import defaultdict
 
 
 class IsolationAnalyzer(Processor):
-    """Check whether critical (P0) services lack physical isolation.
-
-    Rules:
-      - Two different P0 services sharing the same node  ->  ERROR
-      - All replicas of a P0 service in a single zone     ->  WARNING
-    """
+    """Check whether critical services lack physical isolation."""
 
     @staticmethod
     def name() -> str:
@@ -20,71 +16,111 @@ class IsolationAnalyzer(Processor):
         return ["K8sConfigSource", "ServicePrioritySource"]
 
     def init(self, config) -> bool:
+        config = config or {}
+        self.critical_priority_threshold = config.get(
+            "critical_priority_threshold", 0
+        )
         return True
 
     def process(self) -> None:
-        G = self.context.system_state.graph
+        graph = self.context.system_state.graph
+        explicit_priorities = (
+            self.context.system_state.extra_attrs.get("service_priorities", {}) or {}
+        )
+        k8s = self.context.system_state.extra_attrs.get("k8s_configs", {}) or {}
+        node_details = k8s.get("node_details", {}) or {}
+        pods = k8s.get("pods", []) or []
 
-        # ---- collect P0 service names ----
-        p0_services: set[str] = set()
-        for node in G.nodes:
-            if G.nodes[node].get("priority", -1) <= 1:
-                p0_services.add(node)
+        summary = {
+            "critical_priority_threshold": self.critical_priority_threshold,
+            "critical_services": [],
+            "co_located_service_groups": [],
+            "single_zone_services": [],
+            "placements": [],
+            "service_zone_spread": [],
+            "node_details": node_details,
+        }
 
+        p0_services = self._collect_critical_services(graph, explicit_priorities)
+        summary["critical_services"] = sorted(p0_services)
         if not p0_services:
+            self.context.system_state.extra_attrs["isolation_summary"] = summary
             return
 
-        # ---- read pod placement from K8s source ----
-        k8s = self.context.system_state.extra_attrs.get("k8s_configs", {})
-        pods = k8s.get("pods", [])
-
-        # pod -> (service_name, node_name, zone)
-        # We use labels to guess the owning service (e.g. app=svc-a).
-        placements: list[tuple[str, str, str]] = []  # (service, node, zone)
-
+        placements = []
         for pod in pods:
             if not isinstance(pod, dict):
                 continue
-            labels = pod.get("labels", {})
-            svc = (
-                labels.get("app")
-                or labels.get("service")
-                or labels.get("service_name")
-            )
+            svc = self._resolve_service_name(pod)
             if svc not in p0_services:
                 continue
-            node = pod.get("node_name", "")
-            zone = pod.get("zone", "")
-            if node:
-                placements.append((svc, node, zone))
+            node = pod.get("node_name", "") or ""
+            zone = pod.get("zone", "") or ""
+            if not node:
+                continue
+            placements.append((svc, node, zone, pod))
+            summary["placements"].append(
+                {
+                    "service": svc,
+                    "pod": pod.get("name"),
+                    "namespace": pod.get("namespace"),
+                    "node": node,
+                    "zone": zone,
+                    "labels": dict(pod.get("labels") or {}),
+                }
+            )
 
-        # ---- Rule 1: different P0 services on the same node ----
         node_services: dict[str, set[str]] = defaultdict(set)
-        for svc, node, _ in placements:
+        for svc, node, _zone, _pod in placements:
             node_services[node].add(svc)
 
-        for node, svcs in node_services.items():
-            if len(svcs) > 1:
-                self.context.reporter.report(
-                    ReportMessage(
-                        report_from=self.name(),
-                        report_type=ReportType.ERROR,
-                        message=(
-                            f"P0 services {sorted(svcs)} co-located on node '{node}'. "
-                            "These critical services lack physical isolation."
-                        ),
-                    )
+        for node, svcs in sorted(node_services.items()):
+            if len(svcs) <= 1:
+                continue
+            item = {
+                "node": node,
+                "services": sorted(svcs),
+                "zone": (node_details.get(node) or {}).get("zone"),
+            }
+            summary["co_located_service_groups"].append(item)
+            self.context.reporter.report(
+                ReportMessage(
+                    report_from=self.name(),
+                    report_type=ReportType.ERROR,
+                    message=(
+                        f"P0 services {sorted(svcs)} co-located on node '{node}'. "
+                        "These critical services lack physical isolation."
+                    ),
                 )
+            )
 
-        # ---- Rule 2: all replicas of a P0 service in single zone ----
-        svc_zones: dict[str, set[str]] = defaultdict(set)
-        for svc, _, zone in placements:
+        service_nodes: dict[str, set[str]] = defaultdict(set)
+        service_zones: dict[str, set[str]] = defaultdict(set)
+        for svc, node, zone, _pod in placements:
+            service_nodes[svc].add(node)
             if zone:
-                svc_zones[svc].add(zone)
+                service_zones[svc].add(zone)
 
-        for svc in p0_services:
-            zones = svc_zones.get(svc)
+        for svc in sorted(p0_services):
+            zones = service_zones.get(svc, set())
+            nodes = service_nodes.get(svc, set())
+            summary["service_zone_spread"].append(
+                {
+                    "service": svc,
+                    "replica_nodes": sorted(nodes),
+                    "replica_zones": sorted(zones),
+                    "replica_node_count": len(nodes),
+                    "replica_zone_count": len(zones),
+                }
+            )
             if zones and len(zones) == 1:
+                summary["single_zone_services"].append(
+                    {
+                        "service": svc,
+                        "zones": sorted(zones),
+                        "replica_nodes": sorted(nodes),
+                    }
+                )
                 self.context.reporter.report(
                     ReportMessage(
                         report_from=self.name(),
@@ -96,6 +132,56 @@ class IsolationAnalyzer(Processor):
                         ),
                     )
                 )
+
+        summary["placements"].sort(
+            key=lambda item: (
+                item.get("service") or "",
+                item.get("namespace") or "",
+                item.get("pod") or "",
+            )
+        )
+        self.context.system_state.extra_attrs["isolation_summary"] = summary
+
+    def _collect_critical_services(
+        self, graph, explicit_priorities: dict[str, int]
+    ) -> set[str]:
+        critical = set()
+        for service, priority in explicit_priorities.items():
+            try:
+                if int(priority) <= self.critical_priority_threshold:
+                    critical.add(service)
+            except (TypeError, ValueError):
+                continue
+
+        for node in graph.nodes:
+            if node not in explicit_priorities:
+                continue
+            priority = explicit_priorities.get(node)
+            try:
+                if int(priority) <= self.critical_priority_threshold:
+                    critical.add(node)
+            except (TypeError, ValueError):
+                continue
+        return critical
+
+    @staticmethod
+    def _resolve_service_name(pod: dict) -> str | None:
+        labels = pod.get("labels") or {}
+        for key in (
+            "app",
+            "app.kubernetes.io/name",
+            "service",
+            "service_name",
+            "app.kubernetes.io/component",
+        ):
+            value = labels.get(key)
+            if value:
+                return value
+
+        pod_name = pod.get("name") or ""
+        if "-" in pod_name:
+            return pod_name.rsplit("-", 2)[0]
+        return pod_name or None
 
     @staticmethod
     def has_visualization() -> bool:

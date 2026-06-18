@@ -13,39 +13,101 @@ class PriorityCheckAnalyzer(Processor):
         return ["ServicePrioritySource", "ServiceDependencySource"]
 
     def init(self, config) -> bool:
+        self.min_core_indegree = int(config.get("min_core_indegree", 2))
+        self.max_edge_indegree = int(config.get("max_edge_indegree", 1))
+        self.high_pagerank_percentile = float(
+            config.get("high_pagerank_percentile", 0.75)
+        )
+        self.low_pagerank_percentile = float(
+            config.get("low_pagerank_percentile", 0.25)
+        )
+        self.min_pagerank_ratio = float(config.get("min_pagerank_ratio", 1.2))
         return True
 
     def process(self) -> None:
         G = self.context.system_state.graph
-        for node in G.nodes:
-            node_priority = G.nodes[node].get("priority", -1)
-            predecessors = list(G.predecessors(node))
-            all_weak = True
-            pred_priorities = []
-            for pred in predecessors:
-                dep_type = G.edges[pred, node].get("dependency_type", "unknown")
-                pred_priority = G.nodes[pred].get("priority", -1)
-                pred_priorities.append(pred_priority)
-                if dep_type == "strong" or dep_type == "unknown":
-                    all_weak = False
-                    if pred_priority < node_priority:
-                        self.context.reporter.report(
-                            ReportMessage(
-                                report_from=self.name(),
-                                report_type=ReportType.WARNING,
-                                message=f"Priority violation: '{pred}' (priority: {pred_priority}) depends strongly on '{node}' (priority: {node_priority}).",
-                            )
-                        )
-            if all_weak:
-                lowest_pred = max(pred_priorities or [-1])
-                if node_priority < lowest_pred:
-                    self.context.reporter.report(
-                        ReportMessage(
-                            report_from=self.name(),
-                            report_type=ReportType.INFO,
-                            message=f"Consider reviewing '{node}' (priority: {node_priority}) as it is only weakly depended upon by services {predecessors}.",
-                        )
-                    )
+        if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
+            return
+
+        pagerank_scores = self._dependency_centrality(G)
+        indegrees = dict(G.in_degree())
+        high_pagerank_threshold = self._percentile_threshold(
+            pagerank_scores.values(), self.high_pagerank_percentile
+        )
+        low_pagerank_threshold = self._percentile_threshold(
+            pagerank_scores.values(), self.low_pagerank_percentile
+        )
+
+        for source, target, edge_data in G.edges(data=True):
+            dep_type = edge_data.get("dependency_type", "unknown")
+            if dep_type != "strong":
+                continue
+
+            source_pagerank = pagerank_scores.get(source, 0.0)
+            target_pagerank = pagerank_scores.get(target, 0.0)
+            source_indegree = indegrees.get(source, 0)
+            target_indegree = indegrees.get(target, 0)
+
+            is_core_source = (
+                source_indegree >= self.min_core_indegree
+                and source_pagerank >= high_pagerank_threshold
+            )
+            is_edge_target = (
+                target_indegree <= self.max_edge_indegree
+                and target_pagerank <= low_pagerank_threshold
+            )
+            pagerank_ratio = self._safe_ratio(source_pagerank, target_pagerank)
+
+            if not is_core_source or not is_edge_target:
+                continue
+            if source_indegree < target_indegree:
+                continue
+            if pagerank_ratio < self.min_pagerank_ratio:
+                continue
+
+            self.context.reporter.report(
+                ReportMessage(
+                    report_from=self.name(),
+                    report_type=ReportType.WARNING,
+                    message=(
+                        "Dependency hierarchy violation: "
+                        f"core service '{source}' "
+                        f"(pagerank: {source_pagerank:.4f}, indegree: {source_indegree}) "
+                        f"depends strongly on edge service '{target}' "
+                        f"(pagerank: {target_pagerank:.4f}, indegree: {target_indegree})."
+                    ),
+                )
+            )
+
+    @staticmethod
+    def _dependency_centrality(graph: nx.DiGraph) -> dict[str, float]:
+        # Reverse the call graph so "being depended on by many services"
+        # increases centrality instead of rewarding sink nodes.
+        centrality_graph = graph.reverse(copy=True)
+        return nx.pagerank(centrality_graph)
+
+    @staticmethod
+    def _percentile_threshold(values, percentile: float) -> float:
+        ordered = sorted(float(value) for value in values)
+        if not ordered:
+            return 0.0
+        if len(ordered) == 1:
+            return ordered[0]
+
+        percentile = min(max(percentile, 0.0), 1.0)
+        position = percentile * (len(ordered) - 1)
+        lower = int(position)
+        upper = min(lower + 1, len(ordered) - 1)
+        if lower == upper:
+            return ordered[lower]
+        fraction = position - lower
+        return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
+
+    @staticmethod
+    def _safe_ratio(numerator: float, denominator: float) -> float:
+        if denominator <= 0:
+            return float("inf") if numerator > 0 else 1.0
+        return numerator / denominator
 
     @staticmethod
     def has_visualization() -> bool:

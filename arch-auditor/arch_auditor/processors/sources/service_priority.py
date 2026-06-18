@@ -18,6 +18,7 @@ class ServicePrioritySource(Processor):
         if type is None:
             return False
 
+        self.default_priority = config.get("default_priority")
         if type == "InMemory":
             self.priority_manager = InMemoryPriorityManager()
             return True
@@ -26,11 +27,17 @@ class ServicePrioritySource(Processor):
 
     def process(self) -> None:
         G = self.context.system_state.graph
+        explicit_priorities = dict(self.priority_manager.list_priorities())
+        self.context.system_state.extra_attrs["service_priorities"] = explicit_priorities
+        self.context.system_state.extra_attrs["service_priority_default"] = (
+            self.default_priority
+        )
         for node in G.nodes:
             priority = self.priority_manager.get_priority(node)
             if priority is None:
-                priority = 0  # Default priority is the highest
-            G.nodes[node]["priority"] = priority
+                priority = self.default_priority
+            if priority is not None:
+                G.nodes[node]["priority"] = priority
 
     @staticmethod
     def has_visualization() -> bool:

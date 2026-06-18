@@ -106,6 +106,36 @@ def test_high_rollback_ratio():
     assert any("unstable" in msg and "rollback" in msg for msg in reporter.messages)
 
 
+def test_low_deploy_frequency_info():
+    config = {
+        "processors": {
+            "K8sConfigSource": {
+                "type": "Mock",
+                "k8s_configs": {"deployments": [], "pods": []},
+            },
+            "DeploymentHistorySource": {
+                "type": "Mock",
+                "events": [
+                    {"service": "svc-a", "action": "deploy", "version": "v1", "deployed_at": "2026-06-01T10:00:00+00:00", "success": True},
+                    {"service": "svc-a", "action": "deploy", "version": "v2", "deployed_at": "2026-06-02T10:00:00+00:00", "success": True},
+                    {"service": "svc-a", "action": "deploy", "version": "v3", "deployed_at": "2026-06-03T10:00:00+00:00", "success": True},
+                    {"service": "svc-b", "action": "deploy", "version": "v1", "deployed_at": "2026-06-01T10:01:00+00:00", "success": True},
+                    {"service": "svc-b", "action": "deploy", "version": "v2", "deployed_at": "2026-06-02T10:01:00+00:00", "success": True},
+                    {"service": "svc-b", "action": "deploy", "version": "v3", "deployed_at": "2026-06-03T10:01:00+00:00", "success": True},
+                    {"service": "svc-c", "action": "deploy", "version": "v1", "deployed_at": "2026-06-01T10:02:00+00:00", "success": True},
+                ],
+            },
+            "MaintainabilityAnalyzer": {
+                "low_deploy_frequency_ratio": 0.5,
+            },
+        }
+    }
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+    assert any("low deployment frequency" in msg and "svc-c" in msg for msg in reporter.messages)
+
+
 def test_co_deployment_info():
     """Two services always deployed together → INFO."""
     config = {
@@ -125,6 +155,7 @@ def test_co_deployment_info():
             },
             "MaintainabilityAnalyzer": {
                 "co_deploy_overlap_threshold": 0.8,
+                "min_co_deploy_events_per_service": 2,
             },
         }
     }
@@ -132,3 +163,70 @@ def test_co_deployment_info():
     auditor = ArchAuditor(config, reporter=reporter)
     auditor.invoke()
     assert any("deployed together" in msg and "svc-a" in msg for msg in reporter.messages)
+
+
+def test_co_deployment_requires_minimum_history():
+    config = {
+        "processors": {
+            "K8sConfigSource": {
+                "type": "Mock",
+                "k8s_configs": {"deployments": [], "pods": []},
+            },
+            "DeploymentHistorySource": {
+                "type": "Mock",
+                "events": [
+                    {"service": "svc-a", "action": "deploy", "version": "v1", "deployed_at": "2026-06-01T10:00:00+00:00", "success": True},
+                    {"service": "svc-b", "action": "deploy", "version": "v1", "deployed_at": "2026-06-01T10:01:00+00:00", "success": True},
+                ],
+            },
+            "MaintainabilityAnalyzer": {
+                "co_deploy_overlap_threshold": 0.8,
+                "min_co_deploy_events_per_service": 3,
+            },
+        }
+    }
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+    assert not any("deployed together" in msg for msg in reporter.messages)
+
+
+def test_maintainability_summary_written():
+    config = {
+        "processors": {
+            "K8sConfigSource": {
+                "type": "Mock",
+                "k8s_configs": {
+                    "deployments": [],
+                    "pods": [
+                        {
+                            "name": "slow-pod-1",
+                            "namespace": "default",
+                            "creation_time": "2026-06-02T10:00:00+00:00",
+                            "ready_time": "2026-06-02T10:01:00+00:00",
+                            "labels": {"app": "slow-svc"},
+                        },
+                    ],
+                },
+            },
+            "DeploymentHistorySource": {
+                "type": "Mock",
+                "events": [
+                    {"service": "svc-a", "action": "deploy", "version": "v1", "deployed_at": "2026-06-01T10:00:00+00:00", "success": True},
+                    {"service": "svc-b", "action": "deploy", "version": "v1", "deployed_at": "2026-06-01T10:01:00+00:00", "success": True},
+                ],
+            },
+            "MaintainabilityAnalyzer": {
+                "startup_threshold_seconds": 30,
+                "co_deploy_overlap_threshold": 0.8,
+            },
+        }
+    }
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    summary = auditor.system_state.extra_attrs["maintainability_summary"]
+    assert len(summary["startup_issues"]) == 1
+    assert summary["startup_issues"][0]["service"] == "slow-svc"
+    assert "deployment_history_source" in summary

@@ -1,6 +1,5 @@
 from arch_auditor.arch_auditor import ArchAuditor
 from arch_auditor.reporter import ReportMessage, Reporter
-from arch_auditor.priority_manager import InMemoryPriorityManager
 
 
 class MockReporter(Reporter):
@@ -11,15 +10,16 @@ class MockReporter(Reporter):
         self.messages.append(str(report))
 
 
-def test_priority_check_analyze_check_strong_dependencies():
+def test_priority_check_flags_core_service_strong_dependency_on_edge_service():
     config = {
         "processors": {
             "ServiceGraphSource": {
                 "type": "Mock",
                 "edges": [
-                    ("ServiceA", "ServiceB"),
-                    ("ServiceB", "ServiceC"),
-                    ("ServiceC", "ServiceD"),
+                    ("caller-a", "core-service"),
+                    ("caller-b", "core-service"),
+                    ("caller-c", "core-service"),
+                    ("core-service", "edge-service"),
                 ],
             },
             "ServicePrioritySource": {
@@ -32,9 +32,10 @@ def test_priority_check_analyze_check_strong_dependencies():
             "ServiceDependencySource": {
                 "type": "Mock",
                 "dependencies": [
-                    {"from": "ServiceA", "to": "ServiceB", "type": "strong"},
-                    {"from": "ServiceB", "to": "ServiceC", "type": "strong"},
-                    {"from": "ServiceC", "to": "ServiceD", "type": "strong"},
+                    {"from": "caller-a", "to": "core-service", "type": "weak"},
+                    {"from": "caller-b", "to": "core-service", "type": "weak"},
+                    {"from": "caller-c", "to": "core-service", "type": "weak"},
+                    {"from": "core-service", "to": "edge-service", "type": "strong"},
                 ],
             },
             "PriorityCheckAnalyzer": {},
@@ -44,29 +45,24 @@ def test_priority_check_analyze_check_strong_dependencies():
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
 
-    auditor.priority_manager.set_priority("ServiceA", 3)
-    auditor.priority_manager.set_priority("ServiceB", 1)
-    auditor.priority_manager.set_priority("ServiceC", 2)
-    auditor.priority_manager.set_priority("ServiceD", 0)
-
     auditor.invoke()
-    messages = reporter.messages
-    assert len(messages) == 1  # B -> C is a violation
+
     assert any(
-        "Priority violation: 'ServiceB' (priority: 1) depends strongly on 'ServiceC' (priority: 2)."
-        in msg
-        for msg in messages
+        "Dependency hierarchy violation: core service 'core-service'" in msg
+        and "edge service 'edge-service'" in msg
+        for msg in reporter.messages
     )
 
 
-def test_priority_check_analyze_check_weak_dependencies():
+def test_priority_check_does_not_flag_non_strong_dependencies():
     config = {
         "processors": {
             "ServiceGraphSource": {
                 "type": "Mock",
                 "edges": [
-                    ("ServiceX", "ServiceY"),
-                    ("ServiceZ", "ServiceY"),
+                    ("caller-a", "core-service"),
+                    ("caller-b", "core-service"),
+                    ("core-service", "edge-service"),
                 ],
             },
             "ServicePrioritySource": {
@@ -79,8 +75,9 @@ def test_priority_check_analyze_check_weak_dependencies():
             "ServiceDependencySource": {
                 "type": "Mock",
                 "dependencies": [
-                    {"from": "ServiceX", "to": "ServiceY", "type": "weak"},
-                    {"from": "ServiceZ", "to": "ServiceY", "type": "weak"},
+                    {"from": "caller-a", "to": "core-service", "type": "weak"},
+                    {"from": "caller-b", "to": "core-service", "type": "weak"},
+                    {"from": "core-service", "to": "edge-service", "type": "weak"},
                 ],
             },
             "PriorityCheckAnalyzer": {},
@@ -90,28 +87,22 @@ def test_priority_check_analyze_check_weak_dependencies():
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
 
-    auditor.priority_manager.set_priority("ServiceX", 1)
-    auditor.priority_manager.set_priority("ServiceY", 2)
-    auditor.priority_manager.set_priority("ServiceZ", 3)
-
     auditor.invoke()
-    messages = reporter.messages
-    assert len(messages) == 1  # Suggestion for ServiceY
-    assert any(
-        "Consider reviewing 'ServiceY' (priority: 2) as it is only weakly depended upon by services ['ServiceX', 'ServiceZ']."
-        in msg
-        for msg in messages
-    )
+
+    assert reporter.messages == []
 
 
-def test_priority_check_analyze_with_inferred_jaeger_dependencies():
+def test_priority_check_does_not_flag_when_target_is_also_core():
     config = {
         "processors": {
             "ServiceGraphSource": {
                 "type": "Mock",
                 "edges": [
-                    ("ServiceA", "ServiceB"),
-                    ("ServiceB", "ServiceC"),
+                    ("caller-a", "core-a"),
+                    ("caller-b", "core-a"),
+                    ("caller-c", "core-b"),
+                    ("caller-d", "core-b"),
+                    ("core-a", "core-b"),
                 ],
             },
             "ServicePrioritySource": {
@@ -119,25 +110,17 @@ def test_priority_check_analyze_with_inferred_jaeger_dependencies():
             },
             "PrometheusMetricsSource": {
                 "type": "Mock",
-                "metrics": {
-                    "latency": {
-                        "ServiceA": [(1, 1.0), (2, 2.0), (3, 3.0), (4, 4.0)],
-                        "ServiceB": [(1, 2.0), (2, 4.0), (3, 6.0), (4, 8.0)],
-                        "ServiceC": [(1, 3.0), (2, 6.0), (3, 9.0), (4, 12.0)],
-                    },
-                    "error_rate": {
-                        "ServiceA": [(1, 0.1), (2, 0.2), (3, 0.3), (4, 0.4)],
-                        "ServiceB": [(1, 0.2), (2, 0.4), (3, 0.6), (4, 0.8)],
-                        "ServiceC": [(1, 0.3), (2, 0.6), (3, 0.9), (4, 1.2)],
-                    },
-                },
+                "metrics": {},
             },
             "ServiceDependencySource": {
-                "type": "Jaeger",
-                "jaeger_url": "http://jaeger.test",
-                "strong_call_threshold": 100,
-                "correlation_threshold": 0.7,
-                "lookback_ms": 60000,
+                "type": "Mock",
+                "dependencies": [
+                    {"from": "caller-a", "to": "core-a", "type": "weak"},
+                    {"from": "caller-b", "to": "core-a", "type": "weak"},
+                    {"from": "caller-c", "to": "core-b", "type": "weak"},
+                    {"from": "caller-d", "to": "core-b", "type": "weak"},
+                    {"from": "core-a", "to": "core-b", "type": "strong"},
+                ],
             },
             "PriorityCheckAnalyzer": {},
         }
@@ -146,46 +129,53 @@ def test_priority_check_analyze_with_inferred_jaeger_dependencies():
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
 
-    auditor.priority_manager.set_priority("ServiceA", 3)
-    auditor.priority_manager.set_priority("ServiceB", 1)
-    auditor.priority_manager.set_priority("ServiceC", 2)
+    auditor.invoke()
 
-    dependency_source = next(
-        processor
-        for processor in auditor.processors
-        if processor.name() == "ServiceDependencySource"
-    )
+    assert reporter.messages == []
 
-    def fake_process_jaeger():
-        G = dependency_source.context.system_state.graph
-        metrics = dependency_source.context.system_state.extra_attrs["metrics_timeseries"]
-        latency = metrics["latency"]
-        error_rate = metrics["error_rate"]
-        jaeger_payload = [
-            ("ServiceA", "ServiceB", 150),
-            ("ServiceB", "ServiceC", 150),
-        ]
-        for parent, child, call_count in jaeger_payload:
-            corr = dependency_source._dependency_correlation(
-                latency.get(parent, []),
-                latency.get(child, []),
-                error_rate.get(parent, []),
-                error_rate.get(child, []),
-            )
-            dep_type = (
-                "strong"
-                if call_count >= dependency_source.strong_threshold
-                and corr >= dependency_source.correlation_threshold
-                else "weak"
-            )
-            G.edges[parent, child]["dependency_type"] = dep_type
 
-    dependency_source._process_jaeger = fake_process_jaeger
+def test_priority_check_flags_when_indegree_is_equal_but_centrality_gap_is_large():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("caller-a", "core-service"),
+                    ("core-service", "edge-service"),
+                    ("core-service", "support-a"),
+                    ("core-service", "support-b"),
+                ],
+            },
+            "ServicePrioritySource": {
+                "type": "InMemory",
+            },
+            "PrometheusMetricsSource": {
+                "type": "Mock",
+                "metrics": {},
+            },
+            "ServiceDependencySource": {
+                "type": "Mock",
+                "dependencies": [
+                    {"from": "caller-a", "to": "core-service", "type": "weak"},
+                    {"from": "core-service", "to": "edge-service", "type": "strong"},
+                    {"from": "core-service", "to": "support-a", "type": "weak"},
+                    {"from": "core-service", "to": "support-b", "type": "weak"},
+                ],
+            },
+            "PriorityCheckAnalyzer": {
+                "min_core_indegree": 1,
+                "high_pagerank_percentile": 0.7,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
 
     auditor.invoke()
-    messages = reporter.messages
+
     assert any(
-        "Priority violation: 'ServiceB' (priority: 1) depends strongly on 'ServiceC' (priority: 2)."
-        in msg
-        for msg in messages
+        "Dependency hierarchy violation: core service 'core-service'" in msg
+        and "edge service 'edge-service'" in msg
+        for msg in reporter.messages
     )

@@ -48,3 +48,29 @@ def test_service_priority_source():
     assert auditor.system_state.graph.nodes["ServiceB"]["priority"] == 2
     # Default priority for unspecified services
     assert auditor.system_state.graph.nodes["ServiceC"]["priority"] == 0
+
+
+def test_service_priority_source_custom_default_priority():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("ServiceA", "ServiceB"),
+                    ("ServiceB", "ServiceC"),
+                ],
+            },
+            "ServicePrioritySource": {
+                "type": "InMemory",
+                "default_priority": 3,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    assert auditor.system_state.graph.nodes["ServiceA"]["priority"] == 3
+    assert auditor.system_state.graph.nodes["ServiceB"]["priority"] == 3
+    assert auditor.system_state.graph.nodes["ServiceC"]["priority"] == 3

@@ -7,7 +7,12 @@ processors:
     type: Prometheus
     prometheus_url: http://localhost:9090
   CircularDependencyAnalyzer: {}
-  PriorityCheckAnalyzer: {}
+  PriorityCheckAnalyzer:
+    min_core_indegree: 1
+    max_edge_indegree: 1
+    high_pagerank_percentile: 0.7
+    low_pagerank_percentile: 0.25
+    min_pagerank_ratio: 1.2
   ServiceDependencySource:
     type: Jaeger
     jaeger_url: http://localhost:16686
@@ -18,25 +23,51 @@ processors:
   ServicePrioritySource:
     type: InMemory
   K8sConfigSource:
+    kubeconfig: C:\Users\张腾月\.kube\config
+    request_timeout_seconds: 3
     namespaces:
-      - otel-demo
+      - default
   K8sConfigAnalyzer:
     namespaces:
-      - otel-demo
+      - default
   DeploymentHistorySource:
     type: K8s
+    kubeconfig: C:\Users\张腾月\.kube\config
     namespaces:
-      - otel-demo
+      - default
     rollback_window_minutes: 10
+    request_timeout_seconds: 3
+    audit_log_path: /var/log/kubernetes/audit.log
+    audit_log_container: minikube
+    audit_log_tail_lines: 5000
+    audit_log_timeout_seconds: 60
+  ConfigDriftSource:
+    type: K8s
+    kubeconfig: C:\Users\张腾月\.kube\config
+    namespaces:
+      - default
+    request_timeout_seconds: 3
+    audit_log_path: /var/log/kubernetes/audit.log
+    audit_log_container: minikube
+    audit_log_tail_lines: 5000
+    audit_log_timeout_seconds: 60
+  ConfigDriftAnalyzer:
+    drift_threshold_hours: 24
   SinglePointAnalyzer: {}
   OverDecompositionAnalyzer:
     path_service_threshold: 5
     pipe_service_ratio_threshold: 0.3
     co_deploy_overlap_threshold: 0.8
     co_deploy_window_minutes: 5
+  MaintainabilityAnalyzer:
+    startup_threshold_seconds: 30
+    rollback_ratio_threshold: 0.25
+    co_deploy_overlap_threshold: 0.8
   MonolithicServiceAnalyzer:
     degree_threshold: 15
     resource_multiplier: 5.0
   ResourceUtilizationAnalyzer:
     waste_threshold: 0.3
     limit_risk_threshold: 0.7
+  IsolationAnalyzer:
+    critical_priority_threshold: 0
