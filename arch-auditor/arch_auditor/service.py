@@ -6,8 +6,8 @@ import networkx as nx
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from arch_auditor.priority_manager import PriorityManager
 from arch_auditor.arch_auditor import ArchAuditor
+from arch_auditor.priority_manager import PriorityManager
 from arch_auditor.processors import ProcessorRegistry
 from arch_auditor.reporter import Reporter, ReportMessage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -33,8 +33,8 @@ class ArchAuditService:
         config: dict,
         registry: ProcessorRegistry | None = None,
     ):
-        self.priority_manager = None
         self.config = config
+        self.priority_manager: PriorityManager | None = None
 
         self.time_scheduler = AsyncIOScheduler()
 
@@ -42,7 +42,6 @@ class ArchAuditService:
         self.arch_auditor = ArchAuditor(
             config=self.config, registry=registry, reporter=self.reporter
         )
-
         self.priority_manager = self.arch_auditor.priority_manager
 
         self.app = FastAPI(lifespan=self._generate_time_scheduler_lifespan())
@@ -64,20 +63,21 @@ class ArchAuditService:
         api.post("/audit")(self.trigger_audit)
         api.get("/reports")(self.list_reports)
         api.get("/service-graph")(self.get_service_graph)
+        api.get("/k8s-config-issues")(self.get_k8s_config_issues)
+        api.get("/circular-dependencies")(self.get_circular_dependencies)
         api.get("/dependency-edges")(self.get_dependency_edges)
         api.get("/metrics-timeseries")(self.get_metrics_timeseries)
         api.get("/resource-utilization")(self.get_resource_utilization)
         api.get("/monolithic-services")(self.get_monolithic_services)
+        api.get("/single-point")(self.get_single_point)
         api.get("/over-decomposition")(self.get_over_decomposition)
         api.get("/deployment-history")(self.get_deployment_history)
         api.get("/config-drift")(self.get_config_drift)
         api.get("/maintainability")(self.get_maintainability)
         api.get("/isolation")(self.get_isolation)
-
-        if self.priority_manager is not None:
-            api.get("/priorities")(self.list_priorities)
-            api.get("/priorities/{service}")(self.get_priority)
-            api.post("/priorities/{service}/{priority}")(self.post_priority)
+        api.get("/priorities")(self.list_priorities)
+        api.get("/priorities/{service}")(self.get_priority)
+        api.post("/priorities/{service}/{priority}")(self.post_priority)
 
         self.app.include_router(api, prefix="/api")
 
@@ -103,6 +103,7 @@ class ArchAuditService:
                 "Service_analysis.html",
                 {
                     "request": request,
+                    "priority_enabled": self.priority_manager is not None,
                 },
             )
 
@@ -112,6 +113,7 @@ class ArchAuditService:
                 "control_center.html",
                 {
                     "request": request,
+                    "priority_enabled": self.priority_manager is not None,
                 },
             )
 
@@ -121,6 +123,7 @@ class ArchAuditService:
                 "Resource_audit.html",
                 {
                     "request": request,
+                    "priority_enabled": self.priority_manager is not None,
                 },
             )
 
@@ -169,18 +172,18 @@ class ArchAuditService:
         
         self.arch_auditor.invoke()
 
+    def list_reports(self):
+        return [str(msg) for msg in self.reporter.list_messages()]
+
     def list_priorities(self):
         return dict(self.priority_manager.list_priorities())
 
-    def get_priority(self, service):
+    def get_priority(self, service: str):
         return self.priority_manager.get_priority(service)
 
     def post_priority(self, service: str, priority: int):
         self.priority_manager.set_priority(service, priority)
         return {"service": service, "priority": priority}
-
-    def list_reports(self):
-        return [str(msg) for msg in self.reporter.list_messages()]
 
     def get_service_graph(self, view: str | None = None):
         graph = self.arch_auditor.system_state.graph
@@ -217,14 +220,10 @@ class ArchAuditService:
             else:
                 working_graph = graph
                 message = "Dominator view requires a single root."
-        nodes = []
         priority_lookup = {}
         if self.priority_manager is not None:
-            try:
-                priority_lookup = dict(self.priority_manager.list_priorities())
-            except Exception:
-                priority_lookup = {}
-
+            priority_lookup = dict(self.priority_manager.list_priorities())
+        nodes = []
         for node in working_graph.nodes:
             attrs = graph.nodes[node] or {}
             priority = attrs.get("priority")
@@ -246,11 +245,8 @@ class ArchAuditService:
                 service_level = "critical"
             elif priority_value == 1:
                 service_level = "high"
-            elif priority_value == 2:
-                service_level = "standard"
             elif priority_value == 3:
                 service_level = "low"
-
             nodes.append(
                 {
                     "id": str(node),
@@ -287,6 +283,44 @@ class ArchAuditService:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
+    def get_k8s_config_issues(self):
+        issues = self.arch_auditor.system_state.extra_attrs.get("k8s_issues", []) or []
+        normalized = []
+        for item in issues:
+            normalized.append(
+                {
+                    "severity": item.get("severity"),
+                    "type": item.get("type"),
+                    "message": item.get("message"),
+                    "resource": item.get("resource"),
+                }
+            )
+        normalized.sort(
+            key=lambda item: (
+                item.get("severity") or "",
+                item.get("type") or "",
+                item.get("resource") or "",
+            )
+        )
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(normalized),
+            "items": normalized,
+        }
+
+    def get_circular_dependencies(self):
+        summary = (
+            self.arch_auditor.system_state.extra_attrs.get(
+                "circular_dependency_summary", {}
+            )
+            or {}
+        )
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": summary.get("count", 0),
+            "cycles": summary.get("cycles", []),
+        }
+
     def get_dependency_edges(self):
         graph = self.arch_auditor.system_state.graph
         edges = []
@@ -318,6 +352,18 @@ class ArchAuditService:
         raw_metrics_timeseries = extra_attrs.get("raw_metrics_timeseries", {}) or {}
         metric_aliases = extra_attrs.get("metrics_aliases", {}) or {}
         prometheus_queries = extra_attrs.get("prometheus_queries", {}) or {}
+        prometheus_query_windows = (
+            extra_attrs.get("prometheus_query_windows", {}) or {}
+        )
+        prometheus_metric_errors = (
+            extra_attrs.get("prometheus_metric_errors", {}) or {}
+        )
+        prometheus_metric_fallbacks = (
+            extra_attrs.get("prometheus_metric_fallbacks", {}) or {}
+        )
+        prometheus_metric_attempts = (
+            extra_attrs.get("prometheus_metric_attempts", {}) or {}
+        )
 
         summary = {}
         for metric_name, services_data in metrics_timeseries.items():
@@ -349,6 +395,10 @@ class ArchAuditService:
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "queries": prometheus_queries,
+            "query_windows": prometheus_query_windows,
+            "metric_errors": prometheus_metric_errors,
+            "metric_fallbacks": prometheus_metric_fallbacks,
+            "metric_attempts": prometheus_metric_attempts,
             "aliases": metric_aliases,
             "raw_metrics": raw_summary,
             "metrics": summary,
@@ -364,7 +414,6 @@ class ArchAuditService:
                 {
                     "service": item.get("service"),
                     "container": item.get("container"),
-                    "priority": item.get("priority"),
                     "request_cpu": item.get("request_cpu"),
                     "limit_cpu": item.get("limit_cpu"),
                     "request_memory_bytes": item.get("request_memory_bytes"),
@@ -377,8 +426,22 @@ class ArchAuditService:
                     "short_term_avg_memory_usage_bytes": item.get(
                         "short_term_avg_memory_usage_bytes"
                     ),
+                    "avg_throughput": item.get("avg_throughput"),
+                    "cluster_median_throughput": item.get(
+                        "cluster_median_throughput"
+                    ),
+                    "high_qps_multiplier": item.get("high_qps_multiplier"),
                     "cpu_timeseries_points": item.get("cpu_timeseries_points"),
                     "memory_timeseries_points": item.get("memory_timeseries_points"),
+                    "throughput_timeseries_points": item.get(
+                        "throughput_timeseries_points"
+                    ),
+                    "is_sync_path_service": item.get("is_sync_path_service", False),
+                    "is_async_only_service": item.get("is_async_only_service", False),
+                    "is_high_qps_service": item.get("is_high_qps_service", False),
+                    "requires_request": item.get("requires_request", False),
+                    "missing_request_reason": item.get("missing_request_reason"),
+                    "sync_entry_services": item.get("sync_entry_services", []),
                     "has_missing_request_issue": item.get(
                         "has_missing_request_issue", False
                     ),
@@ -489,6 +552,29 @@ class ArchAuditService:
             ),
         }
 
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "summary": normalized,
+        }
+
+    def get_single_point(self):
+        summary = (
+            self.arch_auditor.system_state.extra_attrs.get(
+                "single_point_summary", {}
+            )
+            or {}
+        )
+        normalized = {
+            "root": summary.get("root"),
+            "root_count": summary.get("root_count"),
+            "warning_percentage_threshold": summary.get(
+                "warning_percentage_threshold"
+            ),
+            "critical_nodes": summary.get("critical_nodes", []),
+            "availability_risk_nodes": summary.get("availability_risk_nodes", []),
+            "criticality_scores": summary.get("criticality_scores", {}),
+            "dominator_tree": summary.get("dominator_tree", {}),
+        }
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "summary": normalized,
@@ -633,13 +719,16 @@ class ArchAuditService:
         summary = extra_attrs.get("isolation_summary", {}) or {}
 
         normalized = {
-            "critical_priority_threshold": summary.get(
-                "critical_priority_threshold"
+            "analyzed_services": summary.get("analyzed_services", []),
+            "min_replicas_for_spread": summary.get(
+                "min_replicas_for_spread"
             ),
-            "critical_services": summary.get("critical_services", []),
             "placements": summary.get("placements", []),
             "co_located_service_groups": summary.get(
                 "co_located_service_groups", []
+            ),
+            "same_node_replica_services": summary.get(
+                "same_node_replica_services", []
             ),
             "single_zone_services": summary.get("single_zone_services", []),
             "service_zone_spread": summary.get("service_zone_spread", []),

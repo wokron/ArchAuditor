@@ -1,0 +1,7 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          resources:
+            limits: null

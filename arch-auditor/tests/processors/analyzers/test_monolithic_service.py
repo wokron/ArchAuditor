@@ -42,6 +42,10 @@ def test_monolithic_by_degree():
                     "pods": [],
                 },
             },
+            "PrometheusMetricsSource": {
+                "type": "Mock",
+                "metrics": {},
+            },
             "MonolithicServiceAnalyzer": {
                 "degree_threshold": 15,
                 "resource_multiplier": 5.0,

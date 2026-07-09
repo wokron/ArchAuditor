@@ -11,7 +11,7 @@ class MonolithicServiceAnalyzer(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return ["ServiceGraphSource", "K8sConfigSource"]
+        return ["ServiceGraphSource", "K8sConfigSource", "PrometheusMetricsSource"]
 
     def init(self, config) -> bool:
         config = config or {}

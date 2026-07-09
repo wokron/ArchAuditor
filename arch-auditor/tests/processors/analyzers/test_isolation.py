@@ -10,36 +10,32 @@ class MockReporter(Reporter):
         self.messages.append(str(report))
 
 
-def test_p0_same_node_error():
-    """Two different P0 pods on the same node → ERROR."""
+def test_same_service_replicas_on_same_node_error():
     config = {
         "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("svc-a", "svc-b")],
-            },
-            "ServicePrioritySource": {"type": "InMemory"},
             "K8sConfigSource": {
                 "type": "Mock",
                 "k8s_configs": {
                     "deployments": [],
                     "pods": [
                         {
-                            "name": "svc-a-pod1",
+                            "name": "checkout-a",
                             "namespace": "default",
                             "node_name": "node-1",
                             "zone": "zone-a",
-                            "labels": {"app": "svc-a"},
+                            "labels": {"app": "checkout"},
                         },
                         {
-                            "name": "svc-b-pod1",
+                            "name": "checkout-b",
                             "namespace": "default",
                             "node_name": "node-1",
                             "zone": "zone-a",
-                            "labels": {"app": "svc-b"},
+                            "labels": {"app": "checkout"},
                         },
                     ],
-                    "node_zones": {"node-1": "zone-a"},
+                    "node_details": {
+                        "node-1": {"name": "node-1", "zone": "zone-a", "labels": {}}
+                    },
                 },
             },
             "IsolationAnalyzer": {},
@@ -47,42 +43,41 @@ def test_p0_same_node_error():
     }
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
-    auditor.priority_manager.set_priority("svc-a", 0)
-    auditor.priority_manager.set_priority("svc-b", 0)
     auditor.invoke()
-    assert any("co-located" in msg and "node-1" in msg for msg in reporter.messages)
+
+    assert any(
+        "checkout" in msg and "node-1" in msg and "not sufficiently isolated" in msg
+        for msg in reporter.messages
+    )
 
 
-def test_p0_single_zone_warning():
-    """All replicas of a P0 service in one zone → WARNING."""
+def test_same_service_replicas_single_zone_warning():
     config = {
         "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("svc-x", "B")],
-            },
-            "ServicePrioritySource": {"type": "InMemory"},
             "K8sConfigSource": {
                 "type": "Mock",
                 "k8s_configs": {
                     "deployments": [],
                     "pods": [
                         {
-                            "name": "svc-x-pod1",
+                            "name": "payment-a",
                             "namespace": "default",
                             "node_name": "node-1",
                             "zone": "zone-a",
-                            "labels": {"app": "svc-x"},
+                            "labels": {"app": "payment"},
                         },
                         {
-                            "name": "svc-x-pod2",
+                            "name": "payment-b",
                             "namespace": "default",
                             "node_name": "node-2",
                             "zone": "zone-a",
-                            "labels": {"app": "svc-x"},
+                            "labels": {"app": "payment"},
                         },
                     ],
-                    "node_zones": {"node-1": "zone-a", "node-2": "zone-a"},
+                    "node_details": {
+                        "node-1": {"name": "node-1", "zone": "zone-a", "labels": {}},
+                        "node-2": {"name": "node-2", "zone": "zone-a", "labels": {}},
+                    },
                 },
             },
             "IsolationAnalyzer": {},
@@ -90,62 +85,41 @@ def test_p0_single_zone_warning():
     }
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
-    auditor.priority_manager.set_priority("svc-x", 0)
     auditor.invoke()
-    assert any("single" in msg and "zone" in msg for msg in reporter.messages)
+
+    assert any(
+        "payment" in msg and "single availability zone" in msg
+        for msg in reporter.messages
+    )
 
 
-def test_no_p0_services_silent():
-    """No P0 services → no isolation warnings."""
+def test_isolation_summary_written_for_replica_spread():
     config = {
         "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("A", "B")],
-            },
-            "ServicePrioritySource": {"type": "InMemory"},
-            "K8sConfigSource": {
-                "type": "Mock",
-                "k8s_configs": {"deployments": [], "pods": []},
-            },
-            "IsolationAnalyzer": {},
-        }
-    }
-    reporter = MockReporter()
-    auditor = ArchAuditor(config, reporter=reporter)
-    auditor.invoke()
-    assert len(reporter.messages) == 0
-
-
-def test_isolation_summary_written():
-    config = {
-        "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("svc-a", "svc-b")],
-            },
-            "ServicePrioritySource": {"type": "InMemory", "default_priority": 3},
             "K8sConfigSource": {
                 "type": "Mock",
                 "k8s_configs": {
                     "deployments": [],
                     "pods": [
                         {
-                            "name": "svc-a-pod1",
+                            "name": "frontend-a",
                             "namespace": "default",
                             "node_name": "node-1",
                             "zone": "zone-a",
-                            "labels": {"app": "svc-a"},
+                            "labels": {"app": "frontend"},
                         },
                         {
-                            "name": "svc-b-pod1",
+                            "name": "frontend-b",
                             "namespace": "default",
-                            "node_name": "node-1",
-                            "zone": "zone-a",
-                            "labels": {"app": "svc-b"},
+                            "node_name": "node-2",
+                            "zone": "zone-b",
+                            "labels": {"app": "frontend"},
                         },
                     ],
-                    "node_zones": {"node-1": "zone-a"},
+                    "node_details": {
+                        "node-1": {"name": "node-1", "zone": "zone-a", "labels": {}},
+                        "node-2": {"name": "node-2", "zone": "zone-b", "labels": {}},
+                    },
                 },
             },
             "IsolationAnalyzer": {},
@@ -153,12 +127,9 @@ def test_isolation_summary_written():
     }
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
-    auditor.priority_manager.set_priority("svc-a", 0)
-    auditor.priority_manager.set_priority("svc-b", 0)
     auditor.invoke()
 
     summary = auditor.system_state.extra_attrs["isolation_summary"]
-    assert summary["critical_services"] == ["svc-a", "svc-b"]
-    assert len(summary["co_located_service_groups"]) == 1
-    assert len(summary["service_zone_spread"]) == 2
-    assert "node_details" in summary
+    assert summary["analyzed_services"] == ["frontend"]
+    assert len(summary["service_zone_spread"]) == 1
+    assert summary["service_zone_spread"][0]["replica_node_count"] == 2

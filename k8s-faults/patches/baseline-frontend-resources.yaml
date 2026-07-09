@@ -1,0 +1,12 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          resources:
+            requests:
+              cpu: 100m
+              memory: 120Mi
+            limits:
+              cpu: 300m
+              memory: 250Mi

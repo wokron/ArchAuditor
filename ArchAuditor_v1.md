@@ -16,6 +16,31 @@
 
 ## 2. 运行启动
 
+### 2.0 启动otel-demo服务
+
+1. 启动`minikube`节点集群
+
+   ```
+   minikube start -p arch-demo --driver=docker
+   minikube profile arch-demo
+   kubectl config use-context arch-demo
+   kubectl get nodes
+   ```
+
+2.  如果业务还没部署，重新部署 otel-demo
+
+   ```
+   kubectl apply -f E:\Arch-project\opentelemetry-demo\kubernetes\opentelemetry-demo.yaml
+   ```
+
+3.  做本地端口转发
+
+   ```
+   kubectl port-forward -n default svc/frontend-proxy 8080:8080
+   kubectl port-forward -n default svc/jaeger-query 16686:16686
+   kubectl port-forward -n otel-demo svc/prometheus 9090:9090
+   ```
+
 ### 2.1 后端启动
 
 ```powershell
@@ -53,11 +78,11 @@ Invoke-RestMethod -Method Post "$base/api/audit" | Out-Null
 
 或在 `localhost:8000/` 页面中点击`触发审计`按钮，控制面板展示全部审计日志：
 
-![image-20260613111859255](C:\Users\张腾月\AppData\Roaming\Typora\typora-user-images\image-20260613111859255.png)
+![1](E:\Arch-project\1.png)
 
 在 `/ControlCenterVisualization` 页面中同样可查看日志与问题情况。
 
-![image-20260613112534682](C:\Users\张腾月\AppData\Roaming\Typora\typora-user-images\image-20260613112534682.png)
+![2](E:\Arch-project\2.png)
 
 > 在开始通过接口验证架构问题前，可执行一次：
 >
@@ -96,7 +121,7 @@ Invoke-RestMethod -Method Post "$base/api/audit" | Out-Null
 - 前端页面可视化：
   - `/ResourceAuditVisualization`
   
-  ![image-20260613112221067](C:\Users\张腾月\AppData\Roaming\Typora\typora-user-images\image-20260613112221067.png)
+  ![3](E:\Arch-project\3.png)
   
   ​	可单独导出此类问题审计日志。
 - 日志接口：
@@ -216,7 +241,7 @@ Invoke-RestMethod -Method Post "$base/api/audit" | Out-Null
 - 前端页面：
   - `/vis/CircularDependencyAnalyzer`
   
-    ![image-20260613113117482](C:\Users\张腾月\AppData\Roaming\Typora\typora-user-images\image-20260613113117482.png)
+    ![4](E:\Arch-project\4.png)
   
     展示服务依赖关系图，若存在循环依赖则高亮标注。
   
@@ -304,7 +329,7 @@ message = "No circular dependencies detected."
 
 - 前端页面：`/vis/SinglePointAnalyzer`
   
-  ![image-20260613114942684](C:\Users\张腾月\AppData\Roaming\Typora\typora-user-images\image-20260613114942684.png)
+  ![5](E:\Arch-project\5.png)
   
   可以看到采用不同配色标注服务关键性，高亮关键故障节点。
 - 接口：
@@ -1029,8 +1054,542 @@ arch-demo-m05  az-c
   [2026-06-18 19:07:52] [WARNING] from PriorityCheckAnalyzer: Dependency hierarchy violation: core service 'checkout' (pagerank: 0.1328, indegree: 1) depends strongly on edge service 'email' (pagerank: 0.0222, indegree: 1).
   ```
   
+- - 不合理资源利用：用高优先级/核心服务判断是否需要配置request不太合理
+    - 区分不同的trace，两类，一类是同步调用链，也就是会影响用户的响应时间，在这一条可以被外部网关触发的同步调用树上的所有节点，都该配置request。
+    - 而只出现在异步调用链，不涉及用户响应时间，完全后台消费型的服务，可以不配request；但是如果QPS很高，>>中位数，也需要配。
   
-- 不合理资源利用：用高优先级/核心服务判断是否需要配置request不太合理
-  - 区分不同的trace，两类，一类是同步调用链，也就是会影响用户的响应时间，在这一条可以被外部网关触发的同步调用树上的所有节点，都该配置request。
-  - 而只出现在异步调用链，不涉及用户响应时间，完全后台消费型的服务，可以不配request；但是如果QPS很高，>>中位数，也需要配。
 - 缺少物理隔离：这里的p0服务判定逻辑或许可以和违反依赖关系一样，判断这些是不是配置在了同一个node。
+
+  
+
+---6.22 修改---
+
+违反依赖关系：不再依赖于优先级，计算调用边的皮尔逊相关系数，根据相关性+调用量确定强依赖边。
+
+不合理资源利用：改为在同步调用链的服务必须有request;  异步调用链上的，QPS>3*集群中位数，也必须有request；
+
+资源浪费判断：
+
+- `avg_cpu_usage < 0.3 * request_cpu`
+- `avg_memory_usage < 0.3 * request_memory`
+
+资源接近上限判断：
+
+- `short_term_avg_cpu_usage > 0.7 * limit_cpu`
+- `short_term_avg_memory_usage > 0.7 * limit_memory`
+
+```
+ {
+                      "service":  "accounting",
+                      "container":  "accounting",
+                      "priority":  null,
+                      "request_cpu":  0.0,
+                      "limit_cpu":  0.0,
+                      "request_memory_bytes":  0.0,
+                      "limit_memory_bytes":  125829120.0,
+                      "avg_cpu_usage":  null,
+                      "short_term_avg_cpu_usage":  null,
+                      "avg_memory_usage_bytes":  95121993.14285715,
+                      "short_term_avg_memory_usage_bytes":  94761779.2,
+                      "avg_throughput":  null,
+                      "cluster_median_throughput":  361.84375,
+                      "high_qps_multiplier":  3.0,
+                      "cpu_timeseries_points":  0,
+                      "memory_timeseries_points":  7,
+                      "throughput_timeseries_points":  0,
+                      "is_sync_path_service":  false,
+                      "is_async_only_service":  true,
+                      "is_high_qps_service":  false,
+                      "requires_request":  false,
+                      "missing_request_reason":  null,
+                      "sync_entry_services":  [
+                                                  "frontend",
+                                                  "frontend-proxy"
+                                              ],
+                      "has_missing_request_issue":  false,
+                      "has_cpu_waste_issue":  false,
+                      "has_memory_waste_issue":  false,
+                      "has_waste_issue":  false,
+                      "has_cpu_limit_risk_issue":  false,
+                      "has_memory_limit_risk_issue":  true,
+                      "has_limit_risk_issue":  true
+                  },
+                  {
+                      "service":  "ad",
+                      "container":  "ad",
+                      "priority":  null,
+                      "request_cpu":  0.0,
+                      "limit_cpu":  0.0,
+                      "request_memory_bytes":  0.0,
+                      "limit_memory_bytes":  314572800.0,
+                      "avg_cpu_usage":  0.012234515609724687,
+                      "short_term_avg_cpu_usage":  0.012539962346707116,
+                      "avg_memory_usage_bytes":  243060150.85714287,
+                      "short_term_avg_memory_usage_bytes":  242709299.2,
+                      "avg_throughput":  280.3125,
+                      "cluster_median_throughput":  361.84375,
+                      "high_qps_multiplier":  3.0,
+                      "cpu_timeseries_points":  15,
+                      "memory_timeseries_points":  7,
+                      "throughput_timeseries_points":  16,
+                      "is_sync_path_service":  true,
+                      "is_async_only_service":  false,
+                      "is_high_qps_service":  false,
+                      "requires_request":  true,
+                      "missing_request_reason":  "synchronous_call_path",
+                      "sync_entry_services":  [
+                                                  "frontend",
+                                                  "frontend-proxy"
+                                              ],
+                      "has_missing_request_issue":  true,
+                      "has_cpu_waste_issue":  false,
+                      "has_memory_waste_issue":  false,
+                      "has_waste_issue":  false,
+                      "has_cpu_limit_risk_issue":  false,
+                      "has_memory_limit_risk_issue":  true,
+                      "has_limit_risk_issue":  true
+```
+
+缺少物理隔离：改为下面两类问题：同一服务有多个副本落在同一节点、同一服务所有副本都在同一个AZ
+
+```
+ "critical_services":  [
+                                              "checkout",
+                                              "frontend",
+                                              "payment"
+                                          ],
+                    "analyzed_services":  [
+                                              "checkout",
+                                              "frontend",
+                                              "payment"
+                                          ],
+                    "min_replicas_for_spread":  2,
+                    "placements":  [
+                                       {
+                                           "service":  "accounting",
+                                           "pod":  "accounting-59bf8fff99-cxb9g",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m02",
+                                           "zone":  "az-a",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "accounting",
+                                                          "app.kubernetes.io/name":  "accounting",
+                                                          "opentelemetry.io/name":  "accounting",
+                                                          "pod-template-hash":  "59bf8fff99",
+                                                          "topology.kubernetes.io/zone":  "az-a"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "ad",
+                                           "pod":  "ad-858b9bf84d-cbk8b",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo-m02",
+                                           "zone":  "az-a",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "ad",
+                                                          "app.kubernetes.io/name":  "ad",
+                                                          "opentelemetry.io/name":  "ad",
+                                                          "pod-template-hash":  "858b9bf84d",
+                                                          "topology.kubernetes.io/zone":  "az-a"
+                                                      }
+                                       },
+                                       {
+                                           "service":  "cart",
+                                           "pod":  "cart-5756f5d76f-qmkf4",
+                                           "namespace":  "default",
+                                           "node":  "arch-demo",
+                                           "zone":  "az-a",
+                                           "labels":  {
+                                                          "app.kubernetes.io/component":  "cart",
+                                                          "app.kubernetes.io/name":  "cart",
+                                                          "opentelemetry.io/name":  "cart",
+                                                          "pod-template-hash":  "5756f5d76f"
+                                                      }
+                                       },
+                                     
+```
+
+
+
+---7.1修改---
+
+### 架构问题注入
+
+> 之前在`flag-ui`里面的故障开关主要是修改服务代码运行态的架构行为，我增加了脚本去修改k8s部署层，通过修改当前集群里面的Deployment，人为构造规范性问题，来适配问题1、5、8、9、10需要的对资源配置的修改。
+
+`scripts/Invoke-ArchitectureInjection.ps1`脚本通过下方命令启动：
+
+```
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario 某个场景 -Deployments 某些服务
+```
+
+`ConfigDriftAnnotate`：构造问题 8 配置漂移，给 Deployment 加 annotation，比如`archauditor.io/manual-change`，模拟用户手动改过配置。
+
+`CoDeployRestart`：构造问题 9 协同部署，对多个 Deployment 同时执行 `rollout restart`，模拟多个服务总是一起发布。
+
+`MarkRollback`：构造问题 9 回滚风险，给 Deployment 打 `rollback-demo` 的 change-cause，模拟发生过回滚类变更。
+
+`PinToNode`：构造问题 10 缺少物理隔离，给 Deployment 加 `nodeSelector`，强行让服务 Pod 调度到指定节点。也就是让一个服务的多个副本固定在一个节点上了。
+
+`UnpinFromNode`：恢复问题 10 的注入，删除上面的 `nodeSelector`，解除固定节点。
+
+`ScaleDeployment`：辅助问题 5/10，修改 Deployment 副本数，比如把 payment 扩到 3 个副本。这里对10来说，是为了判断同一个服务是不是多个副本在同一个节点，所以要先把一个服务扩成多个节点。
+
+`BreakK8sProbes`：构造问题 1 规范性问题（缺少探针），删除容器里的 `livenessProbe` 和 `readinessProbe`。
+
+`BreakK8sRequests`：构造问题 1/7/5，删除资源 `requests`，让审计识别缺少资源保证。
+
+`BreakK8sLimits`：构造问题 1/7/5，删除资源 `limits`。
+
+`InjectHostPath`：构造问题 1 规范性问题，给 Deployment 注入 `hostPath` 挂载，模拟不推荐的本地路径挂载。
+
+`SinglePointAvailabilityRisk`：构造问题 5 单点，把服务缩成 1 副本，并删除 requests，模拟关键服务缺少可用性保障。
+
+每个问题使用的命令分别如下：
+
+**k8s规范性问题**
+
+```
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario BreakK8sProbes -Deployments cart
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario BreakK8sRequests -Deployments frontend
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario BreakK8sLimits -Deployments frontend
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario InjectHostPath -Deployments payment
+```
+
+执行：
+
+```
+Invoke-RestMethod http://127.0.0.1:8000/api/k8s-config-issues | ConvertTo-Json -Depth 8
+```
+
+可以看到这个问题接口的输出。输出里面可以关注`type`字段。
+
+**配置漂移**
+
+```
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario ConfigDriftAnnotate -Deployments frontend,checkout,payment
+```
+
+执行：
+
+```
+Invoke-RestMethod http://127.0.0.1:8000/api/config-drift | ConvertTo-Json -Depth 8
+```
+
+可以看到这个问题接口的输出，输出里面可以关注`is_manual_change`、`latest_changed_by`、`change_cause`字段。
+
+**丧失可维护性**
+
+```
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario CoDeployRestart -Deployments frontend,checkout,payment
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario MarkRollback -Deployments checkout
+```
+
+执行：
+
+```
+Invoke-RestMethod http://127.0.0.1:8000/api/maintainability | ConvertTo-Json -Depth 8
+```
+
+**缺少物理隔离**
+
+```
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario ScaleDeployment -Deployments payment -Replicas 3
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario PinToNode -Deployments payment -NodeName arch-demo-m02
+```
+
+执行：
+
+```
+Invoke-RestMethod http://127.0.0.1:8000/api/isolation | ConvertTo-Json -Depth 8
+```
+
+重点看 `same_node_replica_services`、`single_zone_services`、`placements`。
+
+**单点故障**
+
+```
+.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario SinglePointAvailabilityRisk -Deployments frontend-proxy
+```
+
+执行：
+
+```
+Invoke-RestMethod http://127.0.0.1:8000/api/single-point | ConvertTo-Json -Depth 8
+```
+
+
+
+---7.3修改---
+
+> 1. 演示注入从`Windows PowerShell`改为bash脚本
+> 2. 资源配置类问题用不同的`.yaml`配置文件实现
+> 3. 运行时问题需要修改`otel-demo`源码并用脚本开关配置项控制。
+
+### 问题 1：规范性问题
+
+注入方式 1：删除 probe
+
+```powershell
+bash scripts/architecture-injection.sh k8s-missing-probes
+```
+
+注入方式 2：删除 requests
+
+```powershell
+bash scripts/architecture-injection.sh k8s-missing-requests
+```
+
+注入方式 3：删除 limits
+
+```powershell
+bash scripts/architecture-injection.sh k8s-missing-limits
+```
+
+注入方式 4：加入 hostPath
+
+```powershell
+bash scripts/architecture-injection.sh k8s-hostpath
+```
+
+触发审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/k8s-config-issues | ConvertTo-Json -Depth 8
+```
+
+### 问题 2：违反依赖关系 
+
+注入依赖延迟：
+
+```powershell
+bash scripts/runtime-fault.sh dependency-latency
+```
+
+它会打开：
+
+```text
+archLatency=on  //查询商品的时候sleep两秒，构造依赖调用耗时异常
+```
+
+注入依赖失败：
+
+```powershell
+bash scripts/runtime-fault.sh dependency-failure
+```
+
+它会打开：
+
+```text
+paymentUnreachable=on  //模拟payment不可达，checkout调用payment，服务错误率升高
+archCrash=on  //recommandation随机返回错误
+```
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/dependency-edges | ConvertTo-Json -Depth 8
+```
+
+### 问题 3：循环依赖
+
+注入：
+
+```powershell
+bash scripts/runtime-fault.sh circular-dependency
+```
+
+它会打开：
+
+```text
+archCircular=on
+```
+
+源码里对应 recommendation 反调 frontend，制造运行时循环调用。
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/circular-dependencies | ConvertTo-Json -Depth 8
+```
+
+### 问题 4：单体服务
+
+注入：
+
+```powershell
+bash scripts/runtime-fault.sh monolithic-service
+```
+
+它会打开：
+
+```text
+archMonolith=on  //让 frontend调用多个下游服务，并做 CPU busy work。
+```
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/monolithic-services | ConvertTo-Json -Depth 8
+```
+
+### 问题 5：单点问题
+
+方式 1：K8s 配置层单点风险
+
+```powershell
+bash scripts/architecture-injection.sh single-point-risk
+```
+
+它会把 `frontend` 缩成 1 个副本，并删除 requests。
+
+方式 2：运行时关键链路失败
+
+```powershell
+bash scripts/runtime-fault.sh single-point-runtime
+```
+
+它会打开：
+
+```text
+archSinglePoint=on  //让checkout的payment关键链路失效
+```
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/single-point | ConvertTo-Json -Depth 8
+```
+
+### 问题 6：过度拆分
+
+方式 1：制造更长调用链：
+
+```powershell
+bash scripts/runtime-fault.sh long-chain
+```
+
+它会打开：
+
+```text
+archLongChain=on
+```
+
+方式 B：制造调用多次下游服务和队列问题：
+
+```powershell
+bash scripts/runtime-fault.sh over-decomposition
+```
+
+它会打开：
+
+```text
+archNPlusOne=on
+kafkaQueueProblems=on
+```
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/over-decomposition | ConvertTo-Json -Depth 8
+```
+
+### 问题 7：不合理资源利用
+
+这个可以用 YAML 配置问题，也可以用运行时高负载问题。
+
+删除 resource requests
+
+```powershell
+bash scripts/architecture-injection.sh k8s-missing-requests
+```
+
+删除 resource limits
+
+```
+ bash scripts/architecture-injection.sh k8s-missing-limits
+```
+
+增加运行时资源压力
+
+```powershell
+bash scripts/runtime-fault.sh resource-stress
+```
+
+它会打开：
+
+```text
+adHighCpu=on
+emailMemoryLeak=100x
+archSpike=on
+```
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/resource-utilization | ConvertTo-Json -Depth 8
+```
+
+### 问题 8：配置漂移
+
+注入：
+
+```powershell
+bash scripts/architecture-injection.sh config-drift
+```
+
+对应 YAML ：
+
+```text
+k8s-faults/patches/config-drift-checkout.yaml.tpl
+```
+
+这个配置会给 `checkout` 加人工变更 annotation，模拟有人手动改了线上配置。
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/config-drift | ConvertTo-Json -Depth 8
+```
+
+### 问题 9：丧失可维护性
+
+标记回滚：
+
+```powershell
+bash scripts/architecture-injection.sh rollback-mark
+```
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/maintainability | ConvertTo-Json -Depth 8
+```
+
+### 问题 10：缺少物理隔离
+
+注入：
+
+```powershell
+NODE_NAME=arch-demo-m02 REPLICAS=3 bash scripts/architecture-injection.sh isolation-same-node
+```
+
+它会把 `payment` 扩成多个副本，并用 `nodeSelector` 尽量固定到同一个 Kubernetes node。
+
+审计：
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/isolation | ConvertTo-Json -Depth 8
+```
+
+## 

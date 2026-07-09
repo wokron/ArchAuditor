@@ -1,0 +1,5 @@
+{
+  "adHighCpu": "on",
+  "emailMemoryLeak": "100x",
+  "archSpike": "on"
+}

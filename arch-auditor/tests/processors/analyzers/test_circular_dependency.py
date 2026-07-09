@@ -1,6 +1,5 @@
 from arch_auditor.arch_auditor import ArchAuditor
 from arch_auditor.reporter import ReportMessage, Reporter
-from arch_auditor.priority_manager import InMemoryPriorityManager
 
 
 class MockReporter(Reporter):
@@ -19,16 +18,13 @@ def test_circular_dependency_analyze():
                 "edges": [
                     ("A", "B"),
                     ("B", "C"),
-                    ("C", "A"),  # This creates a cycle A -> B -> C ->
+                    ("C", "A"),
                     ("D", "E"),
                     ("E", "F"),
-                    ("F", "D"),  # This creates a cycle D -> E -> F ->
+                    ("F", "D"),
                     ("G", "H"),
-                    ("A", "D"),  # No cycle here
+                    ("A", "D"),
                 ],
-            },
-            "ServicePrioritySource": {
-                "type": "InMemory",
             },
             "CircularDependencyAnalyzer": {},
         }
@@ -41,3 +37,6 @@ def test_circular_dependency_analyze():
     assert len(messages) == 4
     assert any("Circular dependency detected" in msg for msg in messages)
     assert any("Suggested resolution" in msg for msg in messages)
+
+    summary = auditor.system_state.extra_attrs["circular_dependency_summary"]
+    assert summary["count"] == 2

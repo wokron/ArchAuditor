@@ -62,7 +62,20 @@ class ServiceDependencySource(Processor):
             from_service = dep.get("from")
             to_service = dep.get("to")
             dep_type = dep.get("type", "unknown")
-            edge_attrs[(from_service, to_service)] = {"dependency_type": dep_type}
+            attrs = {"dependency_type": dep_type}
+            if "call_count" in dep:
+                attrs["call_count"] = dep.get("call_count")
+            if "correlation" in dep:
+                attrs["dependency_correlation"] = dep.get("correlation")
+                attrs["dependency_correlation_status"] = dep.get(
+                    "correlation_status", "ok"
+                )
+            elif "dependency_correlation" in dep:
+                attrs["dependency_correlation"] = dep.get("dependency_correlation")
+                attrs["dependency_correlation_status"] = dep.get(
+                    "dependency_correlation_status", "ok"
+                )
+            edge_attrs[(from_service, to_service)] = attrs
         nx.set_edge_attributes(self.context.system_state.graph, edge_attrs)
 
     def _process_jaeger(self) -> None:

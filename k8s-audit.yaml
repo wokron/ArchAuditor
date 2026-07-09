@@ -1,4 +1,6 @@
 processors:
+  ServicePrioritySource:
+    type: InMemory
   ServiceGraphSource:
     type: Jaeger
     jaeger_url: http://localhost:16686
@@ -6,13 +8,62 @@ processors:
   PrometheusMetricsSource:
     type: Prometheus
     prometheus_url: http://localhost:9090
+    range_seconds: 900
+    step: 60s
+    request_timeout_seconds: 20
+    request_max_retries: 1
+    request_retry_backoff_seconds: 1
+    service_metric_fallback_range_seconds: 600
+    service_metric_fallback_step: 120s
+    memory_range_seconds: 1800
+    memory_step: 300s
+    memory_request_timeout_seconds: 20
+    latency_query_variants:
+      - label: trace_span_metrics
+        query: |
+          sum by (service_name) (traces_span_metrics_duration_milliseconds_sum)
+          /
+          clamp_min(sum by (service_name) (traces_span_metrics_duration_milliseconds_count), 1)
+      - label: http_server_duration_milliseconds
+        query: |
+          sum by (service_name) (rate(http_server_duration_milliseconds_sum[5m]))
+          /
+          clamp_min(sum by (service_name) (rate(http_server_duration_milliseconds_count[5m])), 1)
+      - label: http_server_request_duration_seconds
+        query: |
+          sum by (service_name) (rate(http_server_request_duration_seconds_sum[5m]))
+          /
+          clamp_min(sum by (service_name) (rate(http_server_request_duration_seconds_count[5m])), 1)
+    error_rate_query_variants:
+      - label: trace_span_metrics
+        query: |
+          sum by (service_name) (traces_span_metrics_calls_total{status_code="STATUS_CODE_ERROR"})
+          /
+          clamp_min(sum by (service_name) (traces_span_metrics_calls_total), 1)
+      - label: http_server_duration_milliseconds
+        query: |
+          sum by (service_name) (http_server_duration_milliseconds_count{http_status_code=~"5.."})
+          /
+          clamp_min(sum by (service_name) (http_server_duration_milliseconds_count), 1)
+      - label: http_server_request_duration_seconds
+        query: |
+          sum by (service_name) (http_server_request_duration_seconds_count{http_response_status_code=~"5.."})
+          /
+          clamp_min(sum by (service_name) (http_server_request_duration_seconds_count), 1)
+    throughput_query_variants:
+      - label: trace_span_metrics
+        query: |
+          sum by (service_name) (traces_span_metrics_calls_total)
+      - label: http_server_duration_milliseconds
+        query: |
+          sum by (service_name) (http_server_duration_milliseconds_count)
+      - label: http_server_request_duration_seconds
+        query: |
+          sum by (service_name) (http_server_request_duration_seconds_count)
   CircularDependencyAnalyzer: {}
-  PriorityCheckAnalyzer:
-    min_core_indegree: 1
-    max_edge_indegree: 1
-    high_pagerank_percentile: 0.7
-    low_pagerank_percentile: 0.25
-    min_pagerank_ratio: 1.2
+  DependencyCorrelationAnalyzer:
+    warning_correlation_threshold: 0.7
+    error_correlation_threshold: 0.9
   ServiceDependencySource:
     type: Jaeger
     jaeger_url: http://localhost:16686
@@ -20,10 +71,7 @@ processors:
     strong_call_threshold: 100
     correlation_threshold: 0.7
     min_aligned_points: 3
-  ServicePrioritySource:
-    type: InMemory
   K8sConfigSource:
-    kubeconfig: C:\Users\张腾月\.kube\config
     request_timeout_seconds: 3
     namespaces:
       - default
@@ -32,23 +80,21 @@ processors:
       - default
   DeploymentHistorySource:
     type: K8s
-    kubeconfig: C:\Users\张腾月\.kube\config
     namespaces:
       - default
     rollback_window_minutes: 10
     request_timeout_seconds: 3
     audit_log_path: /var/log/kubernetes/audit.log
-    audit_log_container: minikube
+    audit_log_container: arch-demo
     audit_log_tail_lines: 5000
     audit_log_timeout_seconds: 60
   ConfigDriftSource:
     type: K8s
-    kubeconfig: C:\Users\张腾月\.kube\config
     namespaces:
       - default
     request_timeout_seconds: 3
     audit_log_path: /var/log/kubernetes/audit.log
-    audit_log_container: minikube
+    audit_log_container: arch-demo
     audit_log_tail_lines: 5000
     audit_log_timeout_seconds: 60
   ConfigDriftAnalyzer:
@@ -69,5 +115,9 @@ processors:
   ResourceUtilizationAnalyzer:
     waste_threshold: 0.3
     limit_risk_threshold: 0.7
+    high_qps_multiplier: 3.0
+    sync_entry_services:
+      - frontend
+      - frontend-proxy
   IsolationAnalyzer:
-    critical_priority_threshold: 0
+    min_replicas_for_spread: 2

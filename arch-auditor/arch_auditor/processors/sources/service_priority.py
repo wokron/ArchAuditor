@@ -1,5 +1,5 @@
 from ...processors import Processor
-from arch_auditor.priority_manager import PriorityManager, InMemoryPriorityManager
+from arch_auditor.priority_manager import InMemoryPriorityManager, PriorityManager
 
 
 class ServicePrioritySource(Processor):
@@ -14,30 +14,25 @@ class ServicePrioritySource(Processor):
         return ["ServiceGraphSource"]
 
     def init(self, config: dict) -> bool:
-        type = config.get("type", None)
-        if type is None:
-            return False
-
+        config = config or {}
         self.default_priority = config.get("default_priority")
-        if type == "InMemory":
+        if self.priority_manager is None:
             self.priority_manager = InMemoryPriorityManager()
-            return True
-        else:
-            return False
+        return True
 
     def process(self) -> None:
-        G = self.context.system_state.graph
+        graph = self.context.system_state.graph
         explicit_priorities = dict(self.priority_manager.list_priorities())
         self.context.system_state.extra_attrs["service_priorities"] = explicit_priorities
         self.context.system_state.extra_attrs["service_priority_default"] = (
             self.default_priority
         )
-        for node in G.nodes:
+        for node in graph.nodes:
             priority = self.priority_manager.get_priority(node)
             if priority is None:
                 priority = self.default_priority
             if priority is not None:
-                G.nodes[node]["priority"] = priority
+                graph.nodes[node]["priority"] = priority
 
     @staticmethod
     def has_visualization() -> bool:

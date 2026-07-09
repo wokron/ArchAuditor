@@ -115,11 +115,18 @@ class K8sConfigSource(Processor):
                             "limits": dict(c.resources.limits or {}),
                             "requests": dict(c.resources.requests or {}),
                         }
-                    # Expose probe config so K8sConfigAnalyzer can check liveness/readiness
-                    if c.liveness_probe:
-                        info["livenessProbe"] = self._probe_to_dict(c.liveness_probe)
-                    if c.readiness_probe:
-                        info["readinessProbe"] = self._probe_to_dict(c.readiness_probe)
+                    # Expose probe keys even when absent so the analyzer can
+                    # distinguish "no probe configured" from "source omitted probes".
+                    info["livenessProbe"] = (
+                        self._probe_to_dict(c.liveness_probe)
+                        if c.liveness_probe
+                        else None
+                    )
+                    info["readinessProbe"] = (
+                        self._probe_to_dict(c.readiness_probe)
+                        if c.readiness_probe
+                        else None
+                    )
                     containers.append(info)
 
                 # Expose pod-level security_context for K8sConfigAnalyzer

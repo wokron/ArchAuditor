@@ -1,10 +1,12 @@
-from ...processors import Processor
+import json
+from pathlib import Path
+
 import networkx as nx
-from arch_auditor.reporter import ReportMessage, ReportType
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
-import json
+
+from ...processors import Processor
+from arch_auditor.reporter import ReportMessage, ReportType
 
 
 class SinglePointAnalyzer(Processor):
@@ -12,6 +14,7 @@ class SinglePointAnalyzer(Processor):
         super().__init__(context)
         self.dominator_tree = None
         self.criticality_scores = {}
+        self.root = None
 
     @staticmethod
     def name() -> str:
@@ -19,69 +22,88 @@ class SinglePointAnalyzer(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return [
-            "ServicePrioritySource",
-            "SingleRootDAGSource",
-        ]
+        return ["SingleRootDAGSource", "K8sConfigSource"]
 
     def init(self, config) -> bool:
+        config = config or {}
+        self.warning_percentage_threshold = float(
+            config.get("warning_percentage_threshold", 10.0)
+        )
         return True
 
     def process(self) -> None:
-        G = self.context.system_state.graph
-        roots = []
-        for node in G.nodes:
-            if G.in_degree(node) == 0:
-                roots.append(node)
+        graph = self.context.system_state.graph
+        roots = [node for node in graph.nodes if graph.in_degree(node) == 0]
         if len(roots) != 1:
             self.context.reporter.report(
                 ReportMessage(
                     report_from=self.name(),
                     report_type=ReportType.ERROR,
-                    message=f"The service graph should have a single root, found {len(roots)} roots: {roots}",
+                    message=(
+                        "The service graph should have a single root, found "
+                        f"{len(roots)} roots: {roots}"
+                    ),
                 )
             )
+            self.context.system_state.extra_attrs["single_point_summary"] = {
+                "root": None,
+                "root_count": len(roots),
+                "critical_nodes": [],
+                "criticality_scores": {},
+                "warning_percentage_threshold": self.warning_percentage_threshold,
+                "dominator_tree": {},
+            }
             return
 
-        root = roots[0]
-
-        self.dominator_tree = nx.immediate_dominators(G, start=root)
-        for node, dominator in self.dominator_tree.items():
-            if node == dominator:
-                continue
-            node_priority = self.context.system_state.graph.nodes[node].get(
-                "priority", -1
-            )
-            dominator_priority = self.context.system_state.graph.nodes[dominator].get(
-                "priority", -1
-            )
-            if dominator_priority > node_priority:
-                self.context.reporter.report(
-                    ReportMessage(
-                        report_from=self.name(),
-                        report_type=ReportType.ERROR,
-                        message=f"Service '{node}' has reversed priority due to its dominator '{dominator}': "
-                        f"node priority = {node_priority}, dominator priority = {dominator_priority}",
-                    )
-                )
-
+        self.root = roots[0]
+        self.dominator_tree = nx.immediate_dominators(graph, start=self.root)
         self._calculate_criticality()
+        availability_risks = self._check_availability_guarantees()
 
-        root_criticality = self.criticality_scores.get(root, 0)
+        root_criticality = self.criticality_scores.get(self.root, 0)
+        critical_nodes = []
         for node, score in self.criticality_scores.items():
-            if node == root:
+            if node == self.root:
                 continue
-            precentage = (score / root_criticality) * 100 if root_criticality > 0 else 0
-            if (
-                precentage > 10
-            ):  # Arbitrary threshold for criticality # TODO: Make configurable
+            percentage = (
+                (score / root_criticality) * 100 if root_criticality > 0 else 0
+            )
+            if percentage > self.warning_percentage_threshold:
+                critical_nodes.append(
+                    {
+                        "service": str(node),
+                        "criticality_score": score,
+                        "criticality_percentage": round(percentage, 2),
+                        "dominator": str(self.dominator_tree.get(node)),
+                    }
+                )
                 self.context.reporter.report(
                     ReportMessage(
                         report_from=self.name(),
                         report_type=ReportType.WARNING,
-                        message=f"Service '{node}' is a critical single point of failure with criticality score {score} ({precentage:.2f}% of root's criticality)",
+                        message=(
+                            f"Service '{node}' is a critical single point of failure "
+                            f"with criticality score {score} ({percentage:.2f}% of root's criticality)"
+                        ),
                     )
                 )
+
+        critical_nodes.sort(
+            key=lambda item: item["criticality_percentage"], reverse=True
+        )
+        self.context.system_state.extra_attrs["single_point_summary"] = {
+            "root": str(self.root),
+            "root_count": len(roots),
+            "critical_nodes": critical_nodes,
+            "availability_risk_nodes": availability_risks,
+            "criticality_scores": {
+                str(node): score for node, score in self.criticality_scores.items()
+            },
+            "warning_percentage_threshold": self.warning_percentage_threshold,
+            "dominator_tree": {
+                str(node): str(dom) for node, dom in (self.dominator_tree or {}).items()
+            },
+        }
 
     def _calculate_criticality(self):
         self.criticality_scores = {}
@@ -93,24 +115,110 @@ class SinglePointAnalyzer(Processor):
                 continue
             dominator_tree_children.setdefault(dom, []).append(child)
 
-        def dfs(n):
-            if n in self.criticality_scores:
-                return self.criticality_scores[n]
-            self_score = self._get_score(n)
+        def dfs(node):
+            if node in self.criticality_scores:
+                return self.criticality_scores[node]
+            self_score = self._get_score(node)
             children_score = sum(
-                dfs(child) for child in dominator_tree_children.get(n, [])
+                dfs(child) for child in dominator_tree_children.get(node, [])
             )
             total_score = self_score + children_score
-            self.criticality_scores[n] = total_score
+            self.criticality_scores[node] = total_score
             return total_score
 
         for node in self.context.system_state.graph.nodes:
             dfs(node)
 
     def _get_score(self, node) -> float:
-        # Score is the avg of the node's qps
         node_data = self.context.system_state.graph.nodes[node]
         return node_data.get("call_count", 0)
+
+    def _check_availability_guarantees(self) -> list[dict]:
+        graph = self.context.system_state.graph
+        k8s = self.context.system_state.extra_attrs.get("k8s_configs", {}) or {}
+        deployments = k8s.get("deployments", []) or []
+
+        deployment_by_service = {}
+        for dep in deployments:
+            if not isinstance(dep, dict):
+                continue
+            service_names = {
+                dep.get("name"),
+                (dep.get("labels") or {}).get("app"),
+                (dep.get("labels") or {}).get("app.kubernetes.io/name"),
+                (dep.get("labels") or {}).get("service"),
+                (dep.get("labels") or {}).get("service_name"),
+                (dep.get("labels") or {}).get("app.kubernetes.io/component"),
+            }
+            for service_name in service_names:
+                if service_name:
+                    deployment_by_service.setdefault(service_name, dep)
+
+        root_criticality = self.criticality_scores.get(self.root, 0)
+        risks = []
+        for node, score in sorted(
+            self.criticality_scores.items(), key=lambda item: item[1], reverse=True
+        ):
+            if node == self.root or root_criticality <= 0:
+                continue
+
+            percentage = (score / root_criticality) * 100
+            if percentage <= self.warning_percentage_threshold:
+                continue
+
+            dep = deployment_by_service.get(str(node))
+            if not dep:
+                continue
+
+            replicas = int(dep.get("replicas") or 0)
+            ready_replicas = int(dep.get("ready_replicas") or 0)
+            missing_request_containers = []
+            for container in dep.get("containers", []) or []:
+                if not isinstance(container, dict):
+                    continue
+                requests = ((container.get("resources") or {}).get("requests") or {})
+                if "cpu" not in requests or "memory" not in requests:
+                    missing_request_containers.append(container.get("name", "unknown"))
+
+            if replicas >= 2 and ready_replicas >= 2 and not missing_request_containers:
+                continue
+
+            risk = {
+                "service": str(node),
+                "namespace": dep.get("namespace"),
+                "replicas": replicas,
+                "ready_replicas": ready_replicas,
+                "criticality_percentage": round(percentage, 2),
+                "missing_request_containers": missing_request_containers,
+                "has_replica_risk": replicas < 2 or ready_replicas < 2,
+                "has_request_risk": bool(missing_request_containers),
+            }
+            risks.append(risk)
+
+            reasons = []
+            if risk["has_replica_risk"]:
+                reasons.append(
+                    f"replicas={replicas}, ready_replicas={ready_replicas}"
+                )
+            if risk["has_request_risk"]:
+                reasons.append(
+                    "missing requests on containers "
+                    + ", ".join(missing_request_containers)
+                )
+
+            self.context.reporter.report(
+                ReportMessage(
+                    report_from=self.name(),
+                    report_type=ReportType.ERROR,
+                    message=(
+                        f"Critical service '{node}' lacks availability guarantees: "
+                        + "; ".join(reasons)
+                        + "."
+                    ),
+                )
+            )
+
+        return risks
 
     @staticmethod
     def has_visualization() -> bool:
@@ -121,47 +229,44 @@ class SinglePointAnalyzer(Processor):
             return JSONResponse(
                 {"error": "No data available. Please run the analyzer first."}
             )
-        
-        # Get templates directory
+
         templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
         templates = Jinja2Templates(directory=str(templates_dir))
-        
-        # Find root node - it's the node that appears in values but not in keys
-        # Or we can get it from the graph (node with in_degree 0)
-        G = self.context.system_state.graph
-        root = None
-        for node in G.nodes:
-            if G.in_degree(node) == 0:
-                root = node
-                break
-        
+
+        graph = self.context.system_state.graph
+        root = self.root
+        if root is None:
+            for node in graph.nodes:
+                if graph.in_degree(node) == 0:
+                    root = node
+                    break
         if root is None:
             return JSONResponse({"error": "No root found in graph"})
-        
-        # Build children map from dominator tree
+
         children_map = {}
         for child, dominator in self.dominator_tree.items():
             children_map.setdefault(dominator, []).append(child)
-        
-        # Get the max criticality for normalization
-        max_criticality = max(self.criticality_scores.values()) if self.criticality_scores else 1
-        
-        # Build tree structure recursively
+
+        max_criticality = (
+            max(self.criticality_scores.values()) if self.criticality_scores else 1
+        )
+
         def build_tree_node(node_id):
             criticality = self.criticality_scores.get(node_id, 0)
-            normalized_criticality = criticality / max_criticality if max_criticality > 0 else 0
+            normalized_criticality = (
+                criticality / max_criticality if max_criticality > 0 else 0
+            )
             percentage = normalized_criticality * 100
-            
-            # Color based on criticality (red for high, yellow for medium, green for low)
+
             if normalized_criticality > 0.5:
-                color = '#ef4444'  # Red
+                color = "#ef4444"
             elif normalized_criticality > 0.2:
-                color = '#f59e0b'  # Orange
+                color = "#f59e0b"
             elif normalized_criticality > 0.1:
-                color = '#eab308'  # Yellow
+                color = "#eab308"
             else:
-                color = '#22c55e'  # Green
-            
+                color = "#22c55e"
+
             node = {
                 "id": str(node_id),
                 "label": f"{percentage:.1f}%",
@@ -175,49 +280,46 @@ class SinglePointAnalyzer(Processor):
                     "lineWidth": 2,
                 },
             }
-            
-            # Add priority if available
-            G = self.context.system_state.graph
-            if node_id in G.nodes:
-                priority = G.nodes[node_id].get("priority", None)
-                if priority is not None:
-                    node["priority"] = priority
-            
-            # Add children
+
             children = children_map.get(node_id, [])
             if children:
                 node["children"] = [build_tree_node(child) for child in children]
-            
             return node
-        
+
         tree_data = build_tree_node(root)
-        
-        # Calculate percentage for critical nodes
+
         root_criticality = self.criticality_scores.get(root, 0)
         critical_nodes = []
         for node, score in self.criticality_scores.items():
-            if node != root:
-                percentage = (score / root_criticality) * 100 if root_criticality > 0 else 0
-                if percentage > 10:
-                    critical_nodes.append(f"{node} ({percentage:.1f}%)")
-        
-        description = f"支配树展示了服务依赖关系中的关键控制点。节点大小和颜色表示其关键性分数（越大越红表示越关键）。"
+            if node == root:
+                continue
+            percentage = (score / root_criticality) * 100 if root_criticality > 0 else 0
+            if percentage > self.warning_percentage_threshold:
+                critical_nodes.append(f"{node} ({percentage:.1f}%)")
+
+        description = (
+            "The dominator tree highlights services whose failure would strongly "
+            "impact downstream connectivity and traffic flow."
+        )
         if critical_nodes:
-            description += f" 关键单点故障服务：{', '.join(critical_nodes)}。"
-        
-        # Prepare legend
+            description += (
+                " Critical single points of failure: "
+                + ", ".join(critical_nodes)
+                + "."
+            )
+
         legend = [
-            {"color": "#ef4444", "label": f"极高关键性 (> 50% 根节点)"},
-            {"color": "#f59e0b", "label": f"高关键性 (20-50%)"},
-            {"color": "#eab308", "label": f"中关键性 (10-20%)"},
-            {"color": "#22c55e", "label": f"低关键性 (< 10%)"},
+            {"color": "#ef4444", "label": "very high criticality (> 50%)"},
+            {"color": "#f59e0b", "label": "high criticality (20-50%)"},
+            {"color": "#eab308", "label": "medium criticality (10-20%)"},
+            {"color": "#22c55e", "label": "low criticality (< 10%)"},
         ]
-        
+
         return templates.TemplateResponse(
             "tree_visualization.html",
             {
                 "request": {},
-                "title": "单点故障分析 - 支配树",
+                "title": "Single Point of Failure Analysis - Dominator Tree",
                 "description": description,
                 "tree_data": json.dumps(tree_data),
                 "legend": legend,

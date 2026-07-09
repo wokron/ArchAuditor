@@ -1,4 +1,6 @@
 processors:
+  ServicePrioritySource:
+    type: InMemory
   ServiceGraphSource:
     type: Jaeger
     jaeger_url: http://localhost:16686/jaeger/ui
@@ -6,7 +8,7 @@ processors:
     type: Prometheus
     prometheus_url: http://localhost:9090
   CircularDependencyAnalyzer: {}
-  PriorityCheckAnalyzer: {}
+  DependencyCorrelationAnalyzer: {}
   ServiceDependencySource:
     type: Jaeger
     jaeger_url: http://localhost:16686/jaeger/ui
@@ -14,8 +16,6 @@ processors:
     strong_call_threshold: 100
     correlation_threshold: 0.7
     min_aligned_points: 3
-  ServicePrioritySource:
-    type: InMemory
   K8sConfigSource:
     namespaces:
       - default

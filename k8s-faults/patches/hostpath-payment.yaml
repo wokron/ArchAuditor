@@ -1,0 +1,13 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: payment
+          volumeMounts:
+            - name: archauditor-hostpath-demo
+              mountPath: /tmp/archauditor-hostpath
+      volumes:
+        - name: archauditor-hostpath-demo
+          hostPath:
+            path: /var/lib/archauditor-hostpath-demo
+            type: DirectoryOrCreate

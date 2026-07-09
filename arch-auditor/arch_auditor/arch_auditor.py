@@ -7,6 +7,7 @@ from arch_auditor.processors import (
 from arch_auditor.reporter import ConsoleReporter, Reporter
 from arch_auditor.scheduler import Scheduler
 from arch_auditor.context import AuditContext
+from arch_auditor.priority_manager import InMemoryPriorityManager
 
 
 class ArchAuditor:
@@ -40,11 +41,11 @@ class ArchAuditor:
         ).build_processors()
 
         self.scheduler = Scheduler(self.processors)
+        self.priority_manager = InMemoryPriorityManager()
 
-        self.priority_manager = None
         for processor in self.processors:
             if processor.name() == "ServicePrioritySource":
-                self.priority_manager = processor.priority_manager
+                processor.priority_manager = self.priority_manager
                 break
 
     def invoke(self) -> None:

@@ -102,3 +102,52 @@ def test_host_path_mount_warning():
     auditor.invoke()
 
     assert any("HOST_PATH_MOUNT" in msg for msg in reporter.messages)
+
+
+def test_missing_probe_warning_when_probe_keys_are_explicitly_empty():
+    config = {
+        "processors": {
+            "K8sConfigSource": {
+                "type": "Mock",
+                "k8s_configs": {
+                    "deployments": [
+                        {
+                            "name": "cart",
+                            "namespace": "otel-demo",
+                            "containers": [
+                                {
+                                    "name": "cart",
+                                    "image": "img",
+                                    "resources": {
+                                        "requests": {"cpu": "100m", "memory": "100Mi"},
+                                        "limits": {"cpu": "200m", "memory": "200Mi"},
+                                    },
+                                    "livenessProbe": None,
+                                    "readinessProbe": None,
+                                }
+                            ],
+                            "securityContext": {"runAsNonRoot": True},
+                            "volumes": [],
+                        }
+                    ],
+                    "pods": [],
+                    "resource_quotas": [
+                        {
+                            "name": "quota",
+                            "namespace": "otel-demo",
+                            "hard": {"requests.cpu": "1"},
+                            "used": {},
+                        }
+                    ],
+                },
+            },
+            "K8sConfigAnalyzer": {"namespaces": ["otel-demo"]},
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    assert any("MISSING_LIVENESS_PROBE" in msg for msg in reporter.messages)
+    assert any("MISSING_READINESS_PROBE" in msg for msg in reporter.messages)

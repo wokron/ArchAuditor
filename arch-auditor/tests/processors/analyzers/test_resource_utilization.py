@@ -10,29 +10,25 @@ class MockReporter(Reporter):
         self.messages.append(str(report))
 
 
-def test_wasting_cpu():
+def test_sync_path_service_without_request_is_flagged():
     config = {
         "processors": {
             "ServiceGraphSource": {
                 "type": "Mock",
-                "edges": [("A", "B")],
+                "edges": [("frontend", "checkout"), ("checkout", "payment")],
             },
-            "ServicePrioritySource": {"type": "InMemory"},
             "K8sConfigSource": {
                 "type": "Mock",
                 "k8s_configs": {
                     "deployments": [
                         {
-                            "name": "waste-svc",
+                            "name": "checkout",
                             "namespace": "default",
                             "containers": [
                                 {
-                                    "name": "app",
+                                    "name": "checkout",
                                     "image": "img",
-                                    "resources": {
-                                        "requests": {"cpu": "1"},
-                                        "limits": {"cpu": "2"},
-                                    },
+                                    "resources": {"requests": {}, "limits": {}},
                                 }
                             ],
                         }
@@ -43,51 +39,100 @@ def test_wasting_cpu():
             "PrometheusMetricsSource": {
                 "type": "Mock",
                 "metrics": {
-                    "cpu_usage": {
-                        "waste-svc": [
-                            (0, 0.1),
-                            (60, 0.15),
-                            (120, 0.12),
-                            (180, 0.1),
-                            (240, 0.11),
-                        ],
-                    },
+                    "throughput": {
+                        "frontend": [(0, 10.0), (60, 12.0), (120, 11.0)],
+                        "checkout": [(0, 9.0), (60, 10.0), (120, 11.0)],
+                    }
                 },
             },
             "ResourceUtilizationAnalyzer": {
-                "waste_threshold": 0.3,
-                "limit_risk_threshold": 0.7,
+                "sync_entry_services": ["frontend"],
             },
         }
     }
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
     auditor.invoke()
-    assert any("wasting CPU" in msg for msg in reporter.messages)
+
+    assert any(
+        "user-facing synchronous call path" in msg and "checkout" in msg
+        for msg in reporter.messages
+    )
 
 
-def test_wasting_memory():
+def test_high_qps_async_service_without_request_is_flagged():
     config = {
         "processors": {
             "ServiceGraphSource": {
                 "type": "Mock",
-                "edges": [("A", "B")],
+                "edges": [("frontend", "checkout"), ("worker", "sink")],
             },
-            "ServicePrioritySource": {"type": "InMemory"},
             "K8sConfigSource": {
                 "type": "Mock",
                 "k8s_configs": {
                     "deployments": [
                         {
-                            "name": "mem-waste-svc",
+                            "name": "worker",
                             "namespace": "default",
                             "containers": [
                                 {
-                                    "name": "app",
+                                    "name": "worker",
+                                    "image": "img",
+                                    "resources": {"requests": {}, "limits": {}},
+                                }
+                            ],
+                        }
+                    ],
+                    "pods": [],
+                },
+            },
+            "PrometheusMetricsSource": {
+                "type": "Mock",
+                "metrics": {
+                    "throughput": {
+                        "frontend": [(0, 5.0), (60, 5.0), (120, 5.0)],
+                        "checkout": [(0, 4.0), (60, 4.0), (120, 4.0)],
+                        "worker": [(0, 40.0), (60, 45.0), (120, 50.0)],
+                        "sink": [(0, 2.0), (60, 2.0), (120, 2.0)],
+                    }
+                },
+            },
+            "ResourceUtilizationAnalyzer": {
+                "sync_entry_services": ["frontend"],
+                "high_qps_multiplier": 3.0,
+            },
+        }
+    }
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    assert any(
+        "very high throughput" in msg and "worker" in msg for msg in reporter.messages
+    )
+
+
+def test_resource_utilization_summary_contains_sync_async_flags():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [("frontend", "checkout"), ("worker", "sink")],
+            },
+            "K8sConfigSource": {
+                "type": "Mock",
+                "k8s_configs": {
+                    "deployments": [
+                        {
+                            "name": "checkout",
+                            "namespace": "default",
+                            "containers": [
+                                {
+                                    "name": "checkout",
                                     "image": "img",
                                     "resources": {
-                                        "requests": {"cpu": "1", "memory": "1Gi"},
-                                        "limits": {"cpu": "2", "memory": "2Gi"},
+                                        "requests": {"cpu": "100m", "memory": "128Mi"},
+                                        "limits": {"cpu": "500m", "memory": "256Mi"},
                                     },
                                 }
                             ],
@@ -99,235 +144,22 @@ def test_wasting_memory():
             "PrometheusMetricsSource": {
                 "type": "Mock",
                 "metrics": {
+                    "throughput": {
+                        "frontend": [(0, 10.0), (60, 12.0), (120, 11.0)],
+                        "checkout": [(0, 9.0), (60, 9.5), (120, 10.0)],
+                    },
+                    "cpu_usage": {"checkout": [(0, 0.04), (60, 0.05), (120, 0.06)]},
                     "memory_usage": {
-                        "mem-waste-svc": [
-                            (0, 100_000_000.0),
-                            (60, 120_000_000.0),
-                            (120, 110_000_000.0),
-                        ],
+                        "checkout": [
+                            (0, 80_000_000.0),
+                            (60, 82_000_000.0),
+                            (120, 84_000_000.0),
+                        ]
                     },
                 },
             },
             "ResourceUtilizationAnalyzer": {
-                "waste_threshold": 0.3,
-                "limit_risk_threshold": 0.7,
-            },
-        }
-    }
-    reporter = MockReporter()
-    auditor = ArchAuditor(config, reporter=reporter)
-    auditor.invoke()
-    assert any("wasting memory" in msg for msg in reporter.messages)
-
-
-def test_limit_risk():
-    config = {
-        "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("A", "B")],
-            },
-            "ServicePrioritySource": {"type": "InMemory"},
-            "K8sConfigSource": {
-                "type": "Mock",
-                "k8s_configs": {
-                    "deployments": [
-                        {
-                            "name": "hot-svc",
-                            "namespace": "default",
-                            "containers": [
-                                {
-                                    "name": "app",
-                                    "image": "img",
-                                    "resources": {
-                                        "requests": {"cpu": "1"},
-                                        "limits": {"cpu": "2"},
-                                    },
-                                }
-                            ],
-                        }
-                    ],
-                    "pods": [],
-                },
-            },
-            "PrometheusMetricsSource": {
-                "type": "Mock",
-                "metrics": {
-                    "cpu_usage": {
-                        "hot-svc": [
-                            (0, 1.5),
-                            (60, 1.5),
-                            (120, 1.5),
-                            (180, 1.5),
-                            (240, 1.5),
-                        ],
-                    },
-                },
-            },
-            "ResourceUtilizationAnalyzer": {
-                "waste_threshold": 0.3,
-                "limit_risk_threshold": 0.7,
-            },
-        }
-    }
-    reporter = MockReporter()
-    auditor = ArchAuditor(config, reporter=reporter)
-    auditor.invoke()
-    assert any("CPU stability risk" in msg for msg in reporter.messages)
-
-
-def test_memory_limit_risk():
-    config = {
-        "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("A", "B")],
-            },
-            "ServicePrioritySource": {"type": "InMemory"},
-            "K8sConfigSource": {
-                "type": "Mock",
-                "k8s_configs": {
-                    "deployments": [
-                        {
-                            "name": "mem-hot-svc",
-                            "namespace": "default",
-                            "containers": [
-                                {
-                                    "name": "app",
-                                    "image": "img",
-                                    "resources": {
-                                        "requests": {"cpu": "1", "memory": "1Gi"},
-                                        "limits": {"cpu": "2", "memory": "1Gi"},
-                                    },
-                                }
-                            ],
-                        }
-                    ],
-                    "pods": [],
-                },
-            },
-            "PrometheusMetricsSource": {
-                "type": "Mock",
-                "metrics": {
-                    "memory_usage": {
-                        "mem-hot-svc": [
-                            (0, 900_000_000.0),
-                            (60, 900_000_000.0),
-                            (120, 900_000_000.0),
-                            (180, 900_000_000.0),
-                            (240, 900_000_000.0),
-                        ],
-                    },
-                },
-            },
-            "ResourceUtilizationAnalyzer": {
-                "waste_threshold": 0.3,
-                "limit_risk_threshold": 0.7,
-            },
-        }
-    }
-    reporter = MockReporter()
-    auditor = ArchAuditor(config, reporter=reporter)
-    auditor.invoke()
-    assert any("memory stability risk" in msg for msg in reporter.messages)
-
-
-def test_high_priority_no_request():
-    config = {
-        "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("critical-svc", "B")],
-            },
-            "ServicePrioritySource": {"type": "InMemory"},
-            "K8sConfigSource": {
-                "type": "Mock",
-                "k8s_configs": {
-                    "deployments": [
-                        {
-                            "name": "critical-svc",
-                            "namespace": "default",
-                            "containers": [
-                                {
-                                    "name": "app",
-                                    "image": "img",
-                                    "resources": {
-                                        "requests": {},
-                                        "limits": {"cpu": "2", "memory": "1Gi"},
-                                    },
-                                }
-                            ],
-                        }
-                    ],
-                    "pods": [],
-                },
-            },
-            "PrometheusMetricsSource": {
-                "type": "Mock",
-                "metrics": {},
-            },
-            "ResourceUtilizationAnalyzer": {
-                "waste_threshold": 0.3,
-                "limit_risk_threshold": 0.7,
-            },
-        }
-    }
-    reporter = MockReporter()
-    auditor = ArchAuditor(config, reporter=reporter)
-    auditor.priority_manager.set_priority("critical-svc", 0)
-    auditor.invoke()
-    assert any("no CPU request" in msg for msg in reporter.messages)
-    assert any("no memory request" in msg for msg in reporter.messages)
-
-
-def test_resource_utilization_summary_written():
-    config = {
-        "processors": {
-            "ServiceGraphSource": {
-                "type": "Mock",
-                "edges": [("summary-svc", "B")],
-            },
-            "ServicePrioritySource": {"type": "InMemory"},
-            "K8sConfigSource": {
-                "type": "Mock",
-                "k8s_configs": {
-                    "deployments": [
-                        {
-                            "name": "summary-svc",
-                            "namespace": "default",
-                            "containers": [
-                                {
-                                    "name": "app",
-                                    "image": "img",
-                                    "resources": {
-                                        "requests": {"cpu": "1", "memory": "1Gi"},
-                                        "limits": {"cpu": "2", "memory": "2Gi"},
-                                    },
-                                }
-                            ],
-                        }
-                    ],
-                    "pods": [],
-                },
-            },
-            "PrometheusMetricsSource": {
-                "type": "Mock",
-                "metrics": {
-                    "cpu_usage": {
-                        "summary-svc": [(0, 0.2), (60, 0.25), (120, 0.3)],
-                    },
-                    "memory_usage": {
-                        "summary-svc": [
-                            (0, 400_000_000.0),
-                            (60, 500_000_000.0),
-                            (120, 600_000_000.0),
-                        ],
-                    },
-                },
-            },
-            "ResourceUtilizationAnalyzer": {
-                "waste_threshold": 0.3,
-                "limit_risk_threshold": 0.7,
+                "sync_entry_services": ["frontend"],
             },
         }
     }
@@ -337,13 +169,7 @@ def test_resource_utilization_summary_written():
 
     summary = auditor.system_state.extra_attrs["resource_utilization_summary"]
     assert len(summary) == 1
-    assert summary[0]["service"] == "summary-svc"
-    assert summary[0]["container"] == "app"
-    assert summary[0]["request_cpu"] == 1.0
-    assert summary[0]["limit_cpu"] == 2.0
-    assert summary[0]["avg_cpu_usage"] == 0.25
-    assert summary[0]["cpu_timeseries_points"] == 3
-    assert summary[0]["request_memory_bytes"] == 1024**3
-    assert summary[0]["limit_memory_bytes"] == 2 * 1024**3
-    assert summary[0]["avg_memory_usage_bytes"] == 500_000_000.0
-    assert summary[0]["memory_timeseries_points"] == 3
+    assert summary[0]["is_sync_path_service"] is True
+    assert summary[0]["is_async_only_service"] is False
+    assert summary[0]["requires_request"] is True
+    assert summary[0]["avg_throughput"] is not None

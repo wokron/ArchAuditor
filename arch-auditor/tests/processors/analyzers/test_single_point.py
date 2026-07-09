@@ -1,6 +1,5 @@
 from arch_auditor.arch_auditor import ArchAuditor
 from arch_auditor.reporter import ReportMessage, Reporter
-from arch_auditor.priority_manager import InMemoryPriorityManager
 
 
 class MockReporter(Reporter):
@@ -11,7 +10,7 @@ class MockReporter(Reporter):
         self.messages.append(str(report))
 
 
-def test_single_point_analyzer_priority_reverse():
+def test_single_point_analyzer_identifies_critical_node():
     config = {
         "processors": {
             "ServiceGraphSource": {
@@ -23,44 +22,26 @@ def test_single_point_analyzer_priority_reverse():
                     ("ServiceC", "ServiceD"),
                 ],
             },
-            "ServicePrioritySource": {
-                "type": "InMemory",
+            "SinglePointAnalyzer": {
+                "warning_percentage_threshold": 10.0,
             },
-            "SinglePointAnalyzer": {},
             "PrometheusMetricsSource": {
                 "type": "Mock",
-                "metrics": {
-                    "latency": {
-                        "ServiceA": [(0, 100), (60, 120)],
-                        "ServiceB": [(0, 200), (60, 220)],
-                        "ServiceC": [(0, 300), (60, 320)],
-                        "ServiceD": [(0, 400), (60, 420)],
-                    },
-                    "error_rate": {
-                        "ServiceA": [(0, 0.01), (60, 0.02)],
-                        "ServiceB": [(0, 0.03), (60, 0.04)],
-                        "ServiceC": [(0, 0.05), (60, 0.06)],
-                        "ServiceD": [(0, 0.07), (60, 0.08)],
-                    },
-                    "throughput": {
-                        "ServiceA": [(0, 1000), (60, 1100)],
-                        "ServiceB": [(0, 900), (60, 950)],
-                        "ServiceC": [(0, 800), (60, 850)],
-                        "ServiceD": [(0, 700), (60, 750)],
-                    },
-                },
+                "metrics": {},
             },
         }
     }
 
     reporter = MockReporter()
     auditor = ArchAuditor(config, reporter=reporter)
-
-    auditor.priority_manager.set_priority("ServiceA", 3)
-    auditor.priority_manager.set_priority("ServiceB", 2)
-    auditor.priority_manager.set_priority("ServiceC", 1)
-    auditor.priority_manager.set_priority("ServiceD", 0)
+    auditor.system_state.graph.nodes["ServiceA"]["call_count"] = 100
+    auditor.system_state.graph.nodes["ServiceB"]["call_count"] = 90
+    auditor.system_state.graph.nodes["ServiceC"]["call_count"] = 5
+    auditor.system_state.graph.nodes["ServiceD"]["call_count"] = 1
 
     auditor.invoke()
-    messages = reporter.messages
-    assert len(messages) == 3
+    summary = auditor.system_state.extra_attrs["single_point_summary"]
+
+    assert summary["root"] == "ServiceA"
+    assert any(node["service"] == "ServiceB" for node in summary["critical_nodes"])
+    assert any("critical single point of failure" in msg for msg in reporter.messages)

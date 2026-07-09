@@ -1,7 +1,7 @@
 from .processor import Processor, ProcessorRegistry, ProcessorsBuilder
 from .analyzers import (
     CircularDependencyAnalyzer,
-    PriorityCheckAnalyzer,
+    DependencyCorrelationAnalyzer,
     SinglePointAnalyzer,
     K8sConfigAnalyzer,
     OverDecompositionAnalyzer,
@@ -30,7 +30,7 @@ native_registry.register(CircularDependencyAnalyzer)
 native_registry.register(ServicePrioritySource)
 native_registry.register(ServiceGraphSource)
 native_registry.register(ServiceDependencySource)
-native_registry.register(PriorityCheckAnalyzer)
+native_registry.register(DependencyCorrelationAnalyzer)
 native_registry.register(SingleRootDAGSource)
 native_registry.register(SinglePointAnalyzer)
 native_registry.register(K8sConfigSource)
@@ -57,7 +57,7 @@ __all__ = [
     "ServicePrioritySource",
     "ServiceGraphSource",
     "ServiceDependencySource",
-    "PriorityCheckAnalyzer",
+    "DependencyCorrelationAnalyzer",
     "SingleRootDAGSource",
     "SinglePointAnalyzer",
     "K8sConfigSource",

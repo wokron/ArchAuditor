@@ -1,5 +1,7 @@
 import statistics
 
+import networkx as nx
+
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
 
@@ -11,20 +13,28 @@ class ResourceUtilizationAnalyzer(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return ["K8sConfigSource", "ServicePrioritySource", "PrometheusMetricsSource"]
+        return ["K8sConfigSource", "PrometheusMetricsSource"]
 
     def init(self, config) -> bool:
         config = config or {}
-        self.waste_threshold = config.get("waste_threshold", 0.3)
-        self.limit_risk_threshold = config.get("limit_risk_threshold", 0.7)
+        self.waste_threshold = float(config.get("waste_threshold", 0.3))
+        self.limit_risk_threshold = float(config.get("limit_risk_threshold", 0.7))
+        self.high_qps_multiplier = float(config.get("high_qps_multiplier", 3.0))
+        self.sync_entry_services = list(config.get("sync_entry_services", []) or [])
+        self.sync_entry_patterns = [
+            pattern.lower()
+            for pattern in (
+                config.get(
+                    "sync_entry_patterns",
+                    ["frontend", "gateway", "proxy", "web", "api"],
+                )
+                or []
+            )
+        ]
         return True
 
     def process(self) -> None:
-        summaries = []
-        graph = None
-        if hasattr(self.context.system_state, "graph"):
-            graph = self.context.system_state.graph
-
+        graph = getattr(self.context.system_state, "graph", None)
         k8s_configs = self.context.system_state.extra_attrs.get("k8s_configs", {})
         deployments = k8s_configs.get("deployments", [])
         metrics_timeseries = self.context.system_state.extra_attrs.get(
@@ -32,12 +42,41 @@ class ResourceUtilizationAnalyzer(Processor):
         )
         cpu_usage_data = metrics_timeseries.get("cpu_usage", {})
         memory_usage_data = metrics_timeseries.get("memory_usage", {})
+        throughput_data = metrics_timeseries.get("throughput", {})
+
+        avg_throughput_by_service = {
+            service: self._summarize_timeseries(points)[0]
+            for service, points in (throughput_data or {}).items()
+        }
+        throughput_values = [
+            value
+            for value in avg_throughput_by_service.values()
+            if value is not None and value > 0
+        ]
+        cluster_median_throughput = (
+            statistics.median(throughput_values) if throughput_values else None
+        )
+
+        sync_services, sync_entry_services = self._identify_sync_services(graph)
+        summaries = []
 
         for dep in deployments:
             name = dep.get("name", "unknown")
-            priority = -1
-            if graph and name in graph.nodes:
-                priority = graph.nodes[name].get("priority", -1)
+            actual_throughput_timeseries = throughput_data.get(name, [])
+            avg_throughput, _short_term_avg_throughput = self._summarize_timeseries(
+                actual_throughput_timeseries
+            )
+            is_sync_path_service = name in sync_services
+            is_high_qps_service = self._is_high_qps(
+                avg_throughput, cluster_median_throughput
+            )
+            requires_request = is_sync_path_service or is_high_qps_service
+
+            missing_request_reason = None
+            if is_sync_path_service:
+                missing_request_reason = "synchronous_call_path"
+            elif is_high_qps_service:
+                missing_request_reason = "high_qps_async_service"
 
             for container in dep.get("containers", []):
                 container_name = container.get("name", "unknown")
@@ -49,41 +88,12 @@ class ResourceUtilizationAnalyzer(Processor):
                 request_memory = self._parse_k8s_memory_bytes(requests.get("memory"))
                 limit_memory = self._parse_k8s_memory_bytes(limits.get("memory"))
 
-                has_missing_request_issue = False
-                if priority != -1 and priority <= 1:
-                    if "cpu" not in requests or request_cpu <= 0:
-                        has_missing_request_issue = True
-                        self.context.reporter.report(
-                            ReportMessage(
-                                report_from=self.name(),
-                                report_type=ReportType.ERROR,
-                                message=(
-                                    f"Service '{name}' is a high-priority service "
-                                    f"(priority {priority}) but has no CPU request "
-                                    "configured. This is unreasonable."
-                                ),
-                            )
-                        )
-                    if "memory" not in requests or request_memory <= 0:
-                        has_missing_request_issue = True
-                        self.context.reporter.report(
-                            ReportMessage(
-                                report_from=self.name(),
-                                report_type=ReportType.ERROR,
-                                message=(
-                                    f"Service '{name}' is a high-priority service "
-                                    f"(priority {priority}) but has no memory request "
-                                    "configured. This is unreasonable."
-                                ),
-                            )
-                        )
-
                 actual_cpu_timeseries = cpu_usage_data.get(name) or cpu_usage_data.get(
                     container_name, []
                 )
-                actual_memory_timeseries = memory_usage_data.get(
-                    name
-                ) or memory_usage_data.get(container_name, [])
+                actual_memory_timeseries = memory_usage_data.get(name) or (
+                    memory_usage_data.get(container_name, [])
+                )
 
                 avg_cpu_usage, short_term_avg_cpu_usage = self._summarize_timeseries(
                     actual_cpu_timeseries
@@ -91,6 +101,51 @@ class ResourceUtilizationAnalyzer(Processor):
                 avg_memory_usage, short_term_avg_memory_usage = (
                     self._summarize_timeseries(actual_memory_timeseries)
                 )
+
+                has_missing_request_issue = False
+                missing_cpu_request = "cpu" not in requests or request_cpu <= 0
+                missing_memory_request = (
+                    "memory" not in requests or request_memory <= 0
+                )
+                if requires_request:
+                    if missing_cpu_request:
+                        has_missing_request_issue = True
+                        self.context.reporter.report(
+                            ReportMessage(
+                                report_from=self.name(),
+                                report_type=(
+                                    ReportType.ERROR
+                                    if is_sync_path_service
+                                    else ReportType.WARNING
+                                ),
+                                message=self._missing_request_message(
+                                    name=name,
+                                    resource_kind="CPU",
+                                    avg_throughput=avg_throughput,
+                                    cluster_median_throughput=cluster_median_throughput,
+                                    is_sync_path_service=is_sync_path_service,
+                                ),
+                            )
+                        )
+                    if missing_memory_request:
+                        has_missing_request_issue = True
+                        self.context.reporter.report(
+                            ReportMessage(
+                                report_from=self.name(),
+                                report_type=(
+                                    ReportType.ERROR
+                                    if is_sync_path_service
+                                    else ReportType.WARNING
+                                ),
+                                message=self._missing_request_message(
+                                    name=name,
+                                    resource_kind="memory",
+                                    avg_throughput=avg_throughput,
+                                    cluster_median_throughput=cluster_median_throughput,
+                                    is_sync_path_service=is_sync_path_service,
+                                ),
+                            )
+                        )
 
                 has_cpu_waste_issue = False
                 if (
@@ -174,7 +229,6 @@ class ResourceUtilizationAnalyzer(Processor):
                     {
                         "service": name,
                         "container": container_name,
-                        "priority": priority,
                         "request_cpu": request_cpu,
                         "limit_cpu": limit_cpu,
                         "request_memory_bytes": request_memory,
@@ -183,8 +237,20 @@ class ResourceUtilizationAnalyzer(Processor):
                         "short_term_avg_cpu_usage": short_term_avg_cpu_usage,
                         "avg_memory_usage_bytes": avg_memory_usage,
                         "short_term_avg_memory_usage_bytes": short_term_avg_memory_usage,
+                        "avg_throughput": avg_throughput,
+                        "cluster_median_throughput": cluster_median_throughput,
+                        "high_qps_multiplier": self.high_qps_multiplier,
                         "cpu_timeseries_points": len(actual_cpu_timeseries or []),
                         "memory_timeseries_points": len(actual_memory_timeseries or []),
+                        "throughput_timeseries_points": len(
+                            actual_throughput_timeseries or []
+                        ),
+                        "is_sync_path_service": is_sync_path_service,
+                        "is_async_only_service": not is_sync_path_service,
+                        "is_high_qps_service": is_high_qps_service,
+                        "requires_request": requires_request,
+                        "missing_request_reason": missing_request_reason,
+                        "sync_entry_services": list(sync_entry_services),
                         "has_missing_request_issue": has_missing_request_issue,
                         "has_cpu_waste_issue": has_cpu_waste_issue,
                         "has_memory_waste_issue": has_memory_waste_issue,
@@ -198,6 +264,77 @@ class ResourceUtilizationAnalyzer(Processor):
                 )
 
         self.context.system_state.extra_attrs["resource_utilization_summary"] = summaries
+
+    def _identify_sync_services(self, graph) -> tuple[set[str], list[str]]:
+        if graph is None or graph.number_of_nodes() == 0:
+            return set(), []
+
+        explicit_entries = [
+            service
+            for service in self.sync_entry_services
+            if service in graph.nodes and service != "<SOURCE>"
+        ]
+        if explicit_entries:
+            seed_services = explicit_entries
+        else:
+            seed_services = [
+                node
+                for node in graph.nodes
+                if node != "<SOURCE>" and self._matches_sync_entry_pattern(node)
+            ]
+            if not seed_services:
+                seed_services = [
+                    node
+                    for node in graph.nodes
+                    if node != "<SOURCE>" and graph.in_degree(node) == 0
+                ]
+
+        sync_services = set()
+        for service in seed_services:
+            sync_services.add(service)
+            sync_services.update(nx.descendants(graph, service))
+        sync_services.discard("<SOURCE>")
+        return sync_services, sorted(set(seed_services))
+
+    def _matches_sync_entry_pattern(self, service_name: str) -> bool:
+        normalized = str(service_name).lower()
+        return any(pattern in normalized for pattern in self.sync_entry_patterns)
+
+    def _is_high_qps(
+        self, avg_throughput: float | None, cluster_median_throughput: float | None
+    ) -> bool:
+        if (
+            avg_throughput is None
+            or cluster_median_throughput is None
+            or cluster_median_throughput <= 0
+        ):
+            return False
+        return avg_throughput > self.high_qps_multiplier * cluster_median_throughput
+
+    def _missing_request_message(
+        self,
+        name: str,
+        resource_kind: str,
+        avg_throughput: float | None,
+        cluster_median_throughput: float | None,
+        is_sync_path_service: bool,
+    ) -> str:
+        if is_sync_path_service:
+            return (
+                f"Service '{name}' is on a user-facing synchronous call path "
+                f"but has no {resource_kind} request configured."
+            )
+        avg = "unknown" if avg_throughput is None else f"{avg_throughput:.3f}"
+        median = (
+            "unknown"
+            if cluster_median_throughput is None
+            else f"{cluster_median_throughput:.3f}"
+        )
+        return (
+            f"Async service '{name}' has very high throughput "
+            f"(avg: {avg}, cluster median: {median}) "
+            f"but has no {resource_kind} request configured."
+        )
 
     @staticmethod
     def _summarize_timeseries(timeseries: list) -> tuple[float | None, float | None]:
