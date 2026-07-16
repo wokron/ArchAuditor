@@ -22,6 +22,10 @@ class OverDecompositionAnalyzer(Processor):
         self.pipe_service_ratio_threshold = config.get(
             "pipe_service_ratio_threshold", 0.3
         )
+        self.fanout_amplification_threshold = config.get(
+            "fanout_amplification_threshold", 2.0
+        )
+        self.min_upstream_calls = config.get("min_upstream_calls", 5)
         self.co_deploy_overlap_threshold = config.get(
             "co_deploy_overlap_threshold", 0.8
         )
@@ -43,6 +47,9 @@ class OverDecompositionAnalyzer(Processor):
             "pipe_service_ratio": 0.0,
             "pipe_service_ratio_threshold": self.pipe_service_ratio_threshold,
             "has_pipe_service_ratio_issue": False,
+            "fanout_amplification_services": [],
+            "fanout_amplification_threshold": self.fanout_amplification_threshold,
+            "has_fanout_amplification_issue": False,
             "co_deployed_pairs": [],
             "co_deploy_overlap_threshold": self.co_deploy_overlap_threshold,
         }
@@ -58,6 +65,7 @@ class OverDecompositionAnalyzer(Processor):
 
         self._analyze_longest_path(G, summary)
         self._analyze_pipe_services(G, service_nodes, summary)
+        self._analyze_fanout_amplification(G, service_nodes, summary)
         self._analyze_co_deployment(G, service_nodes, summary)
 
         self.context.system_state.extra_attrs["over_decomposition_summary"] = summary
@@ -77,7 +85,7 @@ class OverDecompositionAnalyzer(Processor):
             longest_path
         )
 
-        if len(longest_path) > self.path_service_threshold:
+        if len(longest_path) >= self.path_service_threshold:
             summary["has_long_chain_issue"] = True
             latency_hint = ""
             total_latency = summary["longest_path_total_avg_latency"]
@@ -180,6 +188,70 @@ class OverDecompositionAnalyzer(Processor):
                 )
 
         summary["co_deployed_pairs"] = co_deployed_pairs
+
+    def _analyze_fanout_amplification(
+        self, graph, service_nodes: list, summary: dict
+    ) -> None:
+        amplified_services = []
+        for node in service_nodes:
+            upstream_edges = []
+            for predecessor in self._effective_predecessors(graph, node):
+                call_count = graph.edges[predecessor, node].get("call_count")
+                if call_count is None:
+                    continue
+                upstream_edges.append((predecessor, call_count))
+
+            downstream_edges = []
+            for successor in self._effective_successors(graph, node):
+                call_count = graph.edges[node, successor].get("call_count")
+                if call_count is None:
+                    continue
+                downstream_edges.append((successor, call_count))
+
+            if not upstream_edges or not downstream_edges:
+                continue
+
+            upstream_service, upstream_calls = max(
+                upstream_edges, key=lambda item: item[1]
+            )
+            if upstream_calls < self.min_upstream_calls:
+                continue
+
+            downstream_service, downstream_calls = max(
+                downstream_edges, key=lambda item: item[1]
+            )
+            if downstream_calls <= 0:
+                continue
+
+            amplification_ratio = downstream_calls / upstream_calls
+            if amplification_ratio < self.fanout_amplification_threshold:
+                continue
+
+            amplified = {
+                "service": str(node),
+                "upstream": str(upstream_service),
+                "upstream_call_count": upstream_calls,
+                "downstream": str(downstream_service),
+                "downstream_call_count": downstream_calls,
+                "amplification_ratio": round(amplification_ratio, 2),
+            }
+            amplified_services.append(amplified)
+            self.context.reporter.report(
+                ReportMessage(
+                    report_from=self.name(),
+                    report_type=ReportType.WARNING,
+                    message=(
+                        f"Fan-out amplification detected on service '{node}': "
+                        f"upstream '{upstream_service}' observed {upstream_calls} calls, "
+                        f"but downstream '{downstream_service}' observed "
+                        f"{downstream_calls} calls ({amplification_ratio:.2f}x). "
+                        "This may indicate N+1 calls or excessive decomposition."
+                    ),
+                )
+            )
+
+        summary["fanout_amplification_services"] = amplified_services
+        summary["has_fanout_amplification_issue"] = bool(amplified_services)
 
     def _estimate_path_latency(self, services: list) -> float | None:
         metrics = self.context.system_state.extra_attrs.get("metrics_timeseries", {})

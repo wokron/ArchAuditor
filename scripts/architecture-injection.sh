@@ -20,7 +20,7 @@ Scenarios:
   config-drift             Add manual-change annotations to checkout.
   rollback-mark            Mark checkout as rollback-like change.
   isolation-same-node      Scale payment and pin replicas to one node.
-  single-point-risk        Scale frontend to 1 replica and remove requests.
+  single-point-risk        Scale frontend from the demo baseline (2 replicas) to 1 and remove requests.
   reset-k8s-demo           Restore the known K8s demo faults used above.
 
 Environment:

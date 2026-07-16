@@ -46,7 +46,7 @@
 ```powershell
 pip install -r requirements.txt
 cd arch-auditor/
-python -m arch_auditor.service --config ../k8s-audit.yaml
+python -m arch_auditor.service --config ../config.yaml
 ```
 
 ### 2.2 依赖服务
@@ -1217,43 +1217,33 @@ arch-demo-m05  az-c
 
 > 之前在`flag-ui`里面的故障开关主要是修改服务代码运行态的架构行为，我增加了脚本去修改k8s部署层，通过修改当前集群里面的Deployment，人为构造规范性问题，来适配问题1、5、8、9、10需要的对资源配置的修改。
 
-`scripts/Invoke-ArchitectureInjection.ps1`脚本通过下方命令启动：
+`scripts/architecture-injection.sh` 是当前 K8s 配置类问题的注入入口：
 
 ```
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario 某个场景 -Deployments 某些服务
+bash scripts/architecture-injection.sh <scenario>
 ```
 
-`ConfigDriftAnnotate`：构造问题 8 配置漂移，给 Deployment 加 annotation，比如`archauditor.io/manual-change`，模拟用户手动改过配置。
+当前保留的场景：
 
-`CoDeployRestart`：构造问题 9 协同部署，对多个 Deployment 同时执行 `rollout restart`，模拟多个服务总是一起发布。
-
-`MarkRollback`：构造问题 9 回滚风险，给 Deployment 打 `rollback-demo` 的 change-cause，模拟发生过回滚类变更。
-
-`PinToNode`：构造问题 10 缺少物理隔离，给 Deployment 加 `nodeSelector`，强行让服务 Pod 调度到指定节点。也就是让一个服务的多个副本固定在一个节点上了。
-
-`UnpinFromNode`：恢复问题 10 的注入，删除上面的 `nodeSelector`，解除固定节点。
-
-`ScaleDeployment`：辅助问题 5/10，修改 Deployment 副本数，比如把 payment 扩到 3 个副本。这里对10来说，是为了判断同一个服务是不是多个副本在同一个节点，所以要先把一个服务扩成多个节点。
-
-`BreakK8sProbes`：构造问题 1 规范性问题（缺少探针），删除容器里的 `livenessProbe` 和 `readinessProbe`。
-
-`BreakK8sRequests`：构造问题 1/7/5，删除资源 `requests`，让审计识别缺少资源保证。
-
-`BreakK8sLimits`：构造问题 1/7/5，删除资源 `limits`。
-
-`InjectHostPath`：构造问题 1 规范性问题，给 Deployment 注入 `hostPath` 挂载，模拟不推荐的本地路径挂载。
-
-`SinglePointAvailabilityRisk`：构造问题 5 单点，把服务缩成 1 副本，并删除 requests，模拟关键服务缺少可用性保障。
+- `k8s-missing-probes`：构造问题 1，删除 cart 的 liveness/readiness probe。
+- `k8s-missing-requests`：构造问题 1/7，删除 frontend 的 resource requests。
+- `k8s-missing-limits`：构造问题 1/7，删除 frontend 的 resource limits。
+- `k8s-hostpath`：构造问题 1，给 payment 注入 hostPath。
+- `config-drift`：构造问题 8，给 checkout 添加人工变更 annotation。
+- `rollback-mark`：构造问题 9，给 checkout 标记 rollback 类变更。
+- `single-point-risk`：构造问题 5，把 frontend 缩为 1 副本并删除 requests。
+- `isolation-same-node`：构造问题 10，把 payment 多副本固定到同一个节点。
+- `reset-k8s-demo`：恢复上述 K8s 配置类注入的基线。
 
 每个问题使用的命令分别如下：
 
 **k8s规范性问题**
 
 ```
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario BreakK8sProbes -Deployments cart
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario BreakK8sRequests -Deployments frontend
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario BreakK8sLimits -Deployments frontend
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario InjectHostPath -Deployments payment
+bash scripts/architecture-injection.sh k8s-missing-probes
+bash scripts/architecture-injection.sh k8s-missing-requests
+bash scripts/architecture-injection.sh k8s-missing-limits
+bash scripts/architecture-injection.sh k8s-hostpath
 ```
 
 执行：
@@ -1267,7 +1257,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/k8s-config-issues | ConvertTo-Json -
 **配置漂移**
 
 ```
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario ConfigDriftAnnotate -Deployments frontend,checkout,payment
+bash scripts/architecture-injection.sh config-drift
 ```
 
 执行：
@@ -1281,8 +1271,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/config-drift | ConvertTo-Json -Depth
 **丧失可维护性**
 
 ```
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario CoDeployRestart -Deployments frontend,checkout,payment
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario MarkRollback -Deployments checkout
+bash scripts/architecture-injection.sh rollback-mark
 ```
 
 执行：
@@ -1294,8 +1283,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/maintainability | ConvertTo-Json -De
 **缺少物理隔离**
 
 ```
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario ScaleDeployment -Deployments payment -Replicas 3
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario PinToNode -Deployments payment -NodeName arch-demo-m02
+NODE_NAME=arch-demo-m02 REPLICAS=3 bash scripts/architecture-injection.sh isolation-same-node
 ```
 
 执行：
@@ -1309,7 +1297,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/isolation | ConvertTo-Json -Depth 8
 **单点故障**
 
 ```
-.\scripts\Invoke-ArchitectureInjection.ps1 -Scenario SinglePointAvailabilityRisk -Deployments frontend-proxy
+bash scripts/architecture-injection.sh single-point-risk
 ```
 
 执行：
@@ -1393,6 +1381,8 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
 Invoke-RestMethod http://127.0.0.1:8000/api/dependency-edges | ConvertTo-Json -Depth 8
 ```
 
+关注`/api/dependency-edges` 里的 `edge_avg_duration_ms`字段和`edge_error_rate`字段。
+
 ### 问题 3：循环依赖
 
 注入：
@@ -1437,6 +1427,8 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
 Invoke-RestMethod http://127.0.0.1:8000/api/monolithic-services | ConvertTo-Json -Depth 8
 ```
 
+关注`frontend`的 `degree/degree_threshold` 和 `has_architecture_issue`字段。
+
 ### 问题 5：单点问题
 
 方式 1：K8s 配置层单点风险
@@ -1466,6 +1458,8 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
 Invoke-RestMethod http://127.0.0.1:8000/api/single-point | ConvertTo-Json -Depth 8
 ```
 
+看 `availability_risk_nodes`，重点字段是 `replicas=1`、`criticality_percentage` 高、`has_replica_risk=true`。
+
 ### 问题 6：过度拆分
 
 方式 1：制造更长调用链：
@@ -1480,7 +1474,7 @@ bash scripts/runtime-fault.sh long-chain
 archLongChain=on
 ```
 
-方式 B：制造调用多次下游服务和队列问题：
+方式 2：制造调用多次下游服务和队列问题：
 
 ```powershell
 bash scripts/runtime-fault.sh over-decomposition
@@ -1499,6 +1493,8 @@ kafkaQueueProblems=on
 Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
 Invoke-RestMethod http://127.0.0.1:8000/api/over-decomposition | ConvertTo-Json -Depth 8
 ```
+
+关注`has_long_chain_issue` 和 `longest_path_services`字段。
 
 ### 问题 7：不合理资源利用
 
@@ -1536,6 +1532,8 @@ archSpike=on
 Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
 Invoke-RestMethod http://127.0.0.1:8000/api/resource-utilization | ConvertTo-Json -Depth 8
 ```
+
+关注`short_term_avg_cpu_usage`、`avg_throughput`、`has_limit_risk_issue`字段
 
 ### 问题 8：配置漂移
 
@@ -1591,5 +1589,3 @@ NODE_NAME=arch-demo-m02 REPLICAS=3 bash scripts/architecture-injection.sh isolat
 Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
 Invoke-RestMethod http://127.0.0.1:8000/api/isolation | ConvertTo-Json -Depth 8
 ```
-
-## 

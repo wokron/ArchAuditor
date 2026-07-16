@@ -14,7 +14,7 @@ class ServiceGraphSource(Processor):
         super().__init__(context)
         self.source_type: str | None = None
         self.jaeger_url: str | None = None
-        self.lookback_ms: int = 3600000
+        self.lookback_ms: int = 300000
 
     @staticmethod
     def name() -> str:
@@ -39,7 +39,7 @@ class ServiceGraphSource(Processor):
             self.jaeger_url = config.get("jaeger_url")
             if not self.jaeger_url:
                 return False
-            self.lookback_ms = config.get("lookback_ms", 3600000)
+            self.lookback_ms = config.get("lookback_ms", 300000)
             return True
         return False
 

@@ -3,7 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROFILE_DIR="$ROOT_DIR/k8s-faults/runtime-flags"
-FLAG_SCRIPT="$ROOT_DIR/scripts/flagd-feature.sh"
+NAMESPACE="${NAMESPACE:-default}"
+FLAGD_DEPLOYMENT="${FLAGD_DEPLOYMENT:-flagd}"
+RESTART_WORKLOADS="${RESTART_WORKLOADS:-true}"
 
 usage() {
   cat <<'EOF'
@@ -22,14 +24,16 @@ Profiles:
   reset-runtime         Turn off the known runtime architecture fault flags.
 
 Environment:
-  BASE_URL=http://127.0.0.1:8080/feature
+  NAMESPACE=default
+  FLAGD_DEPLOYMENT=flagd
+  RESTART_WORKLOADS=true
 EOF
 }
 
 python_bin() {
-  if command -v python3 >/dev/null 2>&1; then
+  if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
     echo python3
-  elif command -v python >/dev/null 2>&1; then
+  elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
     echo python
   else
     echo "python3 or python is required." >&2
@@ -50,17 +54,116 @@ if [[ ! -f "$profile_file" ]]; then
   exit 1
 fi
 
-"$(python_bin)" - "$profile_file" <<'PY' | while IFS=$'\t' read -r flag variant; do
+command -v kubectl >/dev/null 2>&1 || {
+  echo "kubectl is required but was not found in PATH." >&2
+  exit 1
+}
+
+tmp_config="$(mktemp)"
+tmp_data="$(mktemp)"
+trap 'rm -f "$tmp_config" "$tmp_data"' EXIT
+
+kubectl get configmap flagd-config \
+  -n "$NAMESPACE" \
+  -o jsonpath='{.data.demo\.flagd\.json}' > "$tmp_config"
+
+"$(python_bin)" - "$tmp_config" "$profile_file" "$tmp_data" <<'PY'
 import json
 import sys
 
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
+config_path, profile_path, output_path = sys.argv[1:4]
+
+with open(config_path, "r", encoding="utf-8") as fh:
+    config = json.load(fh)
+
+with open(profile_path, "r", encoding="utf-8") as fh:
     profile = json.load(fh)
 
-for flag, variant in profile.items():
-    print(f"{flag}\t{variant}")
-PY
-  "$FLAG_SCRIPT" set "$flag" "$variant"
-done
+flags = config.get("flags", {})
 
-echo "Runtime fault profile '$profile' applied."
+for flag_name, variant in profile.items():
+    if flag_name not in flags:
+        raise SystemExit(f"Flag '{flag_name}' does not exist.")
+
+    variants = flags[flag_name].get("variants", {})
+    if variant not in variants:
+        raise SystemExit(
+            f"Variant '{variant}' is invalid for '{flag_name}'. "
+            f"Available variants: {', '.join(sorted(variants.keys()))}"
+        )
+
+    flags[flag_name]["defaultVariant"] = variant
+
+with open(output_path, "w", encoding="utf-8") as fh:
+    json.dump(config, fh, indent=2)
+PY
+
+kubectl create configmap flagd-config \
+  -n "$NAMESPACE" \
+  --from-file=demo.flagd.json="$tmp_data" \
+  --dry-run=client \
+  -o yaml | kubectl apply -f - >/dev/null
+
+kubectl rollout restart "deployment/$FLAGD_DEPLOYMENT" -n "$NAMESPACE" >/dev/null
+kubectl rollout status "deployment/$FLAGD_DEPLOYMENT" -n "$NAMESPACE" --timeout=180s >/dev/null
+
+workloads_for_profile() {
+  case "$profile" in
+    dependency-latency)
+      echo "product-catalog"
+      ;;
+    dependency-failure)
+      echo "checkout recommendation"
+      ;;
+    circular-dependency)
+      echo "recommendation"
+      ;;
+    monolithic-service)
+      echo "frontend"
+      ;;
+    single-point-runtime)
+      echo "checkout"
+      ;;
+    long-chain)
+      echo "checkout load-generator"
+      ;;
+    over-decomposition)
+      echo "frontend checkout fraud-detection"
+      ;;
+    resource-stress)
+      echo "frontend ad email load-generator"
+      ;;
+    reset-runtime)
+      echo "product-catalog checkout recommendation frontend ad email fraud-detection load-generator"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
+restart_workloads() {
+  [[ "$RESTART_WORKLOADS" == "true" ]] || return 0
+
+  local workloads
+  workloads="$(workloads_for_profile)"
+  [[ -n "$workloads" ]] || return 0
+
+  for workload in $workloads; do
+    if ! kubectl get "deployment/$workload" -n "$NAMESPACE" >/dev/null 2>&1; then
+      continue
+    fi
+    kubectl rollout restart "deployment/$workload" -n "$NAMESPACE" >/dev/null
+  done
+
+  for workload in $workloads; do
+    if ! kubectl get "deployment/$workload" -n "$NAMESPACE" >/dev/null 2>&1; then
+      continue
+    fi
+    kubectl rollout status "deployment/$workload" -n "$NAMESPACE" --timeout=180s >/dev/null
+  done
+}
+
+restart_workloads
+
+echo "Runtime fault profile '$profile' applied via flagd-config ConfigMap in namespace '$NAMESPACE'."

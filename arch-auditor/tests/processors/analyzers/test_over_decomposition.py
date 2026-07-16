@@ -148,3 +148,65 @@ def test_over_decomposition_path_latency_summary():
     summary = auditor.system_state.extra_attrs["over_decomposition_summary"]
     assert summary["has_long_chain_issue"] is True
     assert summary["longest_path_total_avg_latency"] == 60.0
+
+
+def test_over_decomposition_flags_path_at_threshold():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("frontend", "checkout"),
+                    ("checkout", "payment"),
+                    ("payment", "email"),
+                    ("email", "shipping"),
+                ],
+            },
+            "SingleRootDAGSource": {},
+            "OverDecompositionAnalyzer": {
+                "path_service_threshold": 5,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    summary = auditor.system_state.extra_attrs["over_decomposition_summary"]
+    assert summary["longest_path_service_count"] == 5
+    assert summary["has_long_chain_issue"] is True
+
+
+def test_over_decomposition_detects_fanout_amplification():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("frontend-proxy", "frontend"),
+                    ("frontend", "ad"),
+                    ("frontend", "product-catalog"),
+                ],
+            },
+            "SingleRootDAGSource": {},
+            "OverDecompositionAnalyzer": {
+                "fanout_amplification_threshold": 2.0,
+                "min_upstream_calls": 5,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    graph = auditor.system_state.graph
+    graph.edges["frontend-proxy", "frontend"]["call_count"] = 10
+    graph.edges["frontend", "ad"]["call_count"] = 42
+    graph.edges["frontend", "product-catalog"]["call_count"] = 7
+
+    auditor.invoke()
+
+    summary = auditor.system_state.extra_attrs["over_decomposition_summary"]
+    assert summary["has_fanout_amplification_issue"] is True
+    assert summary["fanout_amplification_services"][0]["service"] == "frontend"
+    assert any("Fan-out amplification detected" in msg for msg in reporter.messages)

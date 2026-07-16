@@ -127,6 +127,19 @@ class ArchAuditService:
                 },
             )
 
+    @staticmethod
+    def _latest_metric_value(timeseries):
+        if not isinstance(timeseries, list):
+            return None
+        for point in reversed(timeseries):
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                continue
+            _, value = point
+            if value is None:
+                continue
+            return value
+        return None
+
         processors_with_vis: list[Processor] = []
         for processor in self.arch_auditor.processors:
             if processor.has_visualization():
@@ -326,6 +339,8 @@ class ArchAuditService:
         edges = []
         for source, target, attrs in graph.edges(data=True):
             attrs = attrs or {}
+            source_node = graph.nodes.get(source, {})
+            target_node = graph.nodes.get(target, {})
             edges.append(
                 {
                     "source": str(source),
@@ -335,6 +350,29 @@ class ArchAuditService:
                     "dependency_correlation": attrs.get("dependency_correlation"),
                     "dependency_correlation_status": attrs.get(
                         "dependency_correlation_status"
+                    ),
+                    "edge_span_count": attrs.get("edge_span_count"),
+                    "edge_avg_duration_ms": attrs.get("edge_avg_duration_ms"),
+                    "edge_max_duration_ms": attrs.get("edge_max_duration_ms"),
+                    "edge_error_count": attrs.get("edge_error_count"),
+                    "edge_error_rate": attrs.get("edge_error_rate"),
+                    "source_latest_latency": self._latest_metric_value(
+                        source_node.get("latency")
+                    ),
+                    "target_latest_latency": self._latest_metric_value(
+                        target_node.get("latency")
+                    ),
+                    "source_latest_error_rate": self._latest_metric_value(
+                        source_node.get("error_rate")
+                    ),
+                    "target_latest_error_rate": self._latest_metric_value(
+                        target_node.get("error_rate")
+                    ),
+                    "source_latest_throughput": self._latest_metric_value(
+                        source_node.get("throughput")
+                    ),
+                    "target_latest_throughput": self._latest_metric_value(
+                        target_node.get("throughput")
                     ),
                 }
             )
@@ -545,6 +583,15 @@ class ArchAuditService:
             ),
             "has_pipe_service_ratio_issue": summary.get(
                 "has_pipe_service_ratio_issue", False
+            ),
+            "fanout_amplification_services": summary.get(
+                "fanout_amplification_services", []
+            ),
+            "fanout_amplification_threshold": summary.get(
+                "fanout_amplification_threshold"
+            ),
+            "has_fanout_amplification_issue": summary.get(
+                "has_fanout_amplification_issue", False
             ),
             "co_deployed_pairs": summary.get("co_deployed_pairs", []),
             "co_deploy_overlap_threshold": summary.get(

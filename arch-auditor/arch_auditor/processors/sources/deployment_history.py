@@ -117,17 +117,28 @@ class DeploymentHistorySource(Processor):
 
     def _process_k8s(self) -> None:
         audit_events = self._read_k8s_audit_events()
+        annotation_events = self._read_deployment_annotation_markers()
+
         if audit_events:
-            self.context.system_state.extra_attrs["deployment_history"] = audit_events
+            events = _merge_history_events(audit_events, annotation_events)
+            source = "k8s_audit_log"
+            if annotation_events:
+                source = "k8s_audit_log+deployment_annotations"
+            self.context.system_state.extra_attrs["deployment_history"] = events
             self.context.system_state.extra_attrs["deployment_history_source"] = (
-                "k8s_audit_log"
+                source
             )
             return
 
-        events = self._read_replicaset_history()
+        events = _merge_history_events(
+            self._read_replicaset_history(), annotation_events
+        )
+        source = "k8s_revision_history"
+        if annotation_events:
+            source = "k8s_revision_history+deployment_annotations"
         self.context.system_state.extra_attrs["deployment_history"] = events
         self.context.system_state.extra_attrs["deployment_history_source"] = (
-            "k8s_revision_history"
+            source
         )
 
     def _read_k8s_audit_events(self) -> list[dict]:
@@ -231,6 +242,79 @@ class DeploymentHistorySource(Processor):
             except Exception as e:
                 self._report_error(f"Deployments/{ns}", e)
 
+        return events
+
+    def _read_deployment_annotation_markers(self) -> list[dict]:
+        """Read explicit demo rollback markers from current Deployment metadata.
+
+        Minikube audit logs are not always available or complete in local demos.
+        The rollback fault injection patch writes the intended signal directly on
+        the Deployment, so use that as a deterministic fallback event.
+        """
+
+        events: list[dict] = []
+        for ns in self.namespaces:
+            try:
+                deps = self.apps_v1.list_namespaced_deployment(
+                    ns, _request_timeout=self.request_timeout_seconds
+                )
+            except Exception as e:
+                self._report_error(f"Deployment annotations/{ns}", e)
+                continue
+
+            for dep in deps.items:
+                annotations = dep.metadata.annotations or {}
+                change_cause = str(
+                    annotations.get("kubernetes.io/change-cause", "")
+                )
+                lower_cause = change_cause.lower()
+                if "rollback" not in lower_cause and "undo" not in lower_cause:
+                    continue
+
+                marked_at = (
+                    annotations.get("archauditor.io/manual-change")
+                    or annotations.get("archauditor.io/rollback-demo")
+                    or ""
+                )
+                deployed_at = _normalize_audit_timestamp(str(marked_at))
+                if not deployed_at:
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    deployed_at = now.isoformat()
+
+                version = ""
+                if dep.metadata.generation is not None:
+                    version = str(dep.metadata.generation)
+                elif dep.metadata.resource_version:
+                    version = str(dep.metadata.resource_version)
+
+                events.append(
+                    {
+                        "service": dep.metadata.name,
+                        "namespace": ns,
+                        "resource": f"deployment/{ns}/{dep.metadata.name}",
+                        "kind": "deployment.apps",
+                        "action": "rollback",
+                        "version": version,
+                        "deployed_at": deployed_at,
+                        "success": False,
+                        "rollback_from": None,
+                        "rollback_to": version or None,
+                        "verb": "patch",
+                        "username": None,
+                        "user_agent": None,
+                        "source_ip": None,
+                        "event_source": "k8s_deployment_annotation",
+                        "change_cause": change_cause,
+                    }
+                )
+
+        events.sort(
+            key=lambda item: (
+                item.get("namespace", ""),
+                item.get("service", ""),
+                item.get("deployed_at", ""),
+            )
+        )
         return events
 
     def _iter_audit_log_lines(self):
@@ -441,6 +525,38 @@ def _build_selector(match_labels: dict | None) -> str:
     if not match_labels:
         return ""
     return ",".join(f"{k}={v}" for k, v in match_labels.items())
+
+
+def _merge_history_events(*event_groups: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    seen: set[tuple] = set()
+
+    for events in event_groups:
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            key = (
+                event.get("namespace"),
+                event.get("service"),
+                event.get("resource"),
+                event.get("action"),
+                event.get("deployed_at"),
+                event.get("change_cause"),
+                event.get("event_source"),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(event)
+
+    merged.sort(
+        key=lambda item: (
+            item.get("namespace", ""),
+            item.get("service", ""),
+            item.get("deployed_at", ""),
+        )
+    )
+    return merged
 
 
 def _extract_revision_from_audit_payload(payload: dict) -> str:

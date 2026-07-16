@@ -1,4 +1,5 @@
 spec:
+  replicas: 2
   template:
     spec:
       containers:

@@ -224,7 +224,7 @@ class MaintainabilityAnalyzer(Processor):
             if total == 0:
                 continue
             ratio = stats["rollbacks"] / total
-            if ratio > threshold:
+            if ratio >= threshold:
                 issue = {
                     "service": svc,
                     "deploy_count": stats["deploys"],
@@ -241,7 +241,7 @@ class MaintainabilityAnalyzer(Processor):
                         message=(
                             f"Service '{svc}' has a high rollback ratio: "
                             f"{stats['rollbacks']}/{total} ({ratio:.0%}) "
-                            f"exceeds threshold of {threshold:.0%}. "
+                            f"meets or exceeds threshold of {threshold:.0%}. "
                             "Maintainability may be declining."
                         ),
                     )

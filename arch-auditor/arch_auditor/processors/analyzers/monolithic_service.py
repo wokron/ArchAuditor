@@ -41,7 +41,7 @@ class MonolithicServiceAnalyzer(Processor):
             summary["out_degree"] = out_degree
             summary["degree"] = degree
             summary["degree_threshold"] = self.degree_threshold
-            if degree > self.degree_threshold:
+            if degree >= self.degree_threshold:
                 summary["has_architecture_issue"] = True
                 self.context.reporter.report(
                     ReportMessage(

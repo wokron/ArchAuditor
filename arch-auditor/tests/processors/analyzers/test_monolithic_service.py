@@ -60,6 +60,44 @@ def test_monolithic_by_degree():
     assert any("hub-svc" in msg and "high degree" in msg for msg in reporter.messages)
 
 
+def test_monolithic_by_degree_at_threshold():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("frontend", "checkout"),
+                    ("frontend", "payment"),
+                    ("frontend", "currency"),
+                    ("frontend", "recommendation"),
+                    ("frontend", "product-catalog"),
+                    ("proxy", "frontend"),
+                ],
+            },
+            "K8sConfigSource": {
+                "type": "Mock",
+                "k8s_configs": {
+                    "deployments": [],
+                    "pods": [],
+                },
+            },
+            "PrometheusMetricsSource": {
+                "type": "Mock",
+                "metrics": {},
+            },
+            "MonolithicServiceAnalyzer": {
+                "degree_threshold": 6,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    assert any("frontend" in msg and "high degree" in msg for msg in reporter.messages)
+
+
 def test_monolithic_by_actual_cpu_usage():
     config = {
         "processors": {

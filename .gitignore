@@ -217,3 +217,7 @@ __marimo__/
 
 .vscode/opentelemetry-demo/ 
 opentelemetry-demo
+.codex/
+tmp-*.json
+tmp-*.yaml
+deployment-backup-*.json
