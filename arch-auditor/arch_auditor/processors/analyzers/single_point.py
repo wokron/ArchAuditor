@@ -227,7 +227,7 @@ class SinglePointAnalyzer(Processor):
     def visualize(self):
         if self.dominator_tree is None or not self.criticality_scores:
             return JSONResponse(
-                {"error": "No data available. Please run the analyzer first."}
+                {"error": "暂无可视化数据，请先运行审计。"}
             )
 
         templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
@@ -241,7 +241,7 @@ class SinglePointAnalyzer(Processor):
                     root = node
                     break
         if root is None:
-            return JSONResponse({"error": "No root found in graph"})
+            return JSONResponse({"error": "服务依赖图中未找到入口根节点。"})
 
         children_map = {}
         for child, dominator in self.dominator_tree.items():
@@ -298,28 +298,27 @@ class SinglePointAnalyzer(Processor):
                 critical_nodes.append(f"{node} ({percentage:.1f}%)")
 
         description = (
-            "The dominator tree highlights services whose failure would strongly "
-            "impact downstream connectivity and traffic flow."
+            "支配树用于展示哪些服务一旦失败，会显著影响下游连通性和流量路径。"
         )
         if critical_nodes:
             description += (
-                " Critical single points of failure: "
+                " 当前关键单点服务："
                 + ", ".join(critical_nodes)
-                + "."
+                + "。"
             )
 
         legend = [
-            {"color": "#ef4444", "label": "very high criticality (> 50%)"},
-            {"color": "#f59e0b", "label": "high criticality (20-50%)"},
-            {"color": "#eab308", "label": "medium criticality (10-20%)"},
-            {"color": "#22c55e", "label": "low criticality (< 10%)"},
+            {"color": "#ef4444", "label": "极高关键性（> 50%）"},
+            {"color": "#f59e0b", "label": "高关键性（20-50%）"},
+            {"color": "#eab308", "label": "中等关键性（10-20%）"},
+            {"color": "#22c55e", "label": "低关键性（< 10%）"},
         ]
 
         return templates.TemplateResponse(
             "tree_visualization.html",
             {
                 "request": {},
-                "title": "Single Point of Failure Analysis - Dominator Tree",
+                "title": "单点故障分析 - 支配树",
                 "description": description,
                 "tree_data": json.dumps(tree_data),
                 "legend": legend,

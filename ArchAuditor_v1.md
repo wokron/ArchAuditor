@@ -1399,6 +1399,20 @@ archCircular=on
 
 源码里对应 recommendation 反调 frontend，制造运行时循环调用。
 
+这里可以考虑注入两个服务的流量
+
+```
+1..20 | ForEach-Object {
+  Invoke-RestMethod "http://127.0.0.1:8080/api/recommendations?productIds=OLJCESPC7Z&sessionId=circular-test-$($_)&currencyCode=USD" | Out-Null
+  Start-Sleep -Milliseconds 300
+}
+
+Start-Sleep -Seconds 10
+
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
+Invoke-RestMethod http://127.0.0.1:8000/api/circular-dependencies | ConvertTo-Json -Depth 8
+```
+
 审计：
 
 ```powershell
@@ -1448,7 +1462,7 @@ bash scripts/runtime-fault.sh single-point-runtime
 它会打开：
 
 ```text
-archSinglePoint=on  //让checkout的payment关键链路失效
+archSinglePoint=on  //让checkout的payment关键依赖失效，frontend -> checkout -> payment不可用
 ```
 
 审计：
@@ -1458,7 +1472,7 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/audit
 Invoke-RestMethod http://127.0.0.1:8000/api/single-point | ConvertTo-Json -Depth 8
 ```
 
-看 `availability_risk_nodes`，重点字段是 `replicas=1`、`criticality_percentage` 高、`has_replica_risk=true`。
+看`critical_nodes`和 `availability_risk_nodes`，重点字段是 `replicas=1`、`criticality_percentage` 高、`has_replica_risk=true`。
 
 ### 问题 6：过度拆分
 
@@ -1472,6 +1486,69 @@ bash scripts/runtime-fault.sh long-chain
 
 ```text
 archLongChain=on
+```
+
+这里可以考虑注入下单流量来更好的快速看到问题：
+
+```
+$products = @(
+  '0PUK6V6EV0',
+  '1YMWWN1N4O',
+  '2ZYFJ3GM2N',
+  '66VCHSJNUP',
+  '6E92ZMYYFZ',
+  '9SIQT8TOJO',
+  'L9ECAV7KIM',
+  'LS4PSXUNUM'
+)
+
+1..10 | ForEach-Object {
+  $user = [guid]::NewGuid().ToString()
+
+  foreach ($p in $products) {
+    $cartBody = @{
+      userId = $user
+      item = @{
+        productId = $p
+        quantity = 1
+      }
+    } | ConvertTo-Json -Depth 8
+
+    Invoke-RestMethod `
+      -Method Post `
+      -Uri 'http://127.0.0.1:8080/api/cart' `
+      -ContentType 'application/json' `
+      -Body $cartBody | Out-Null
+  }
+
+  $checkoutBody = @{
+    userId = $user
+    userCurrency = 'USD'
+    email = 'someone@example.com'
+    address = @{
+      streetAddress = '1600 Amphitheatre Parkway'
+      city = 'Mountain View'
+      state = 'CA'
+      country = 'United States'
+      zipCode = '94043'
+    }
+    creditCard = @{
+      creditCardNumber = '4432-8015-6152-0454'
+      creditCardCvv = 672
+      creditCardExpirationYear = 2030
+      creditCardExpirationMonth = 1
+    }
+  } | ConvertTo-Json -Depth 8
+
+  Invoke-RestMethod `
+    -Method Post `
+    -Uri 'http://127.0.0.1:8080/api/checkout?currencyCode=USD' `
+    -ContentType 'application/json' `
+    -Body $checkoutBody | Out-Null
+
+  Write-Host "checkout $_ ok"
+  Start-Sleep -Milliseconds 500
+}
 ```
 
 方式 2：制造调用多次下游服务和队列问题：

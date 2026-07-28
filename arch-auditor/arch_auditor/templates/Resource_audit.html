@@ -62,7 +62,8 @@
 <a class="text-secondary-text hover:text-primary text-sm font-medium transition-colors" href="#">设置</a>
 </nav>
 <div class="h-6 w-px bg-border-light"></div>
-<div class="flex items-center justify-center rounded-full size-9 border border-border-light cursor-pointer shadow-sm bg-primary/10 text-primary text-xs font-bold" data-alt="User profile avatar">ZT</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-9 border border-border-light cursor-pointer shadow-sm" data-alt="User profile avatar gradient" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXKE-5gIP1i3D9MPojY6XsWvH4ZNaG6-EY2iALpyRHygaPBltCm3ymnEkrMAkifDs5cv-SRQT6fy5BZGPJVbffD9zaKtdL85juLLEK9EI19lu00yb1yuLuzXzJp5z2fFyJpWElJwVUfgl5yGYV1ksS5AqQjN5PDl5_RMYvTNGbWdQBl2ViOdinG03k4zbfB8_-VlSIs3XJMQ9QBTUF0fgGqtWwiX2Q9obCvjb0IN1Fs41cOnY-vWiFAZMGDxtxoRhgLj1QCFEzpx1G");'>
+</div>
 </div>
 <button class="md:hidden text-slate-600">
 <span class="material-symbols-outlined">menu</span>
@@ -163,8 +164,8 @@
 </div>
 <div class="p-6 flex flex-col gap-4">
 <div class="flex flex-wrap items-center gap-2">
-<input id="priorityService" class="rounded-lg border border-border-light bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="Service Name" type="text"/>
-<input id="priorityValue" class="rounded-lg border border-border-light bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-28" placeholder="Priority" type="number"/>
+<input id="priorityService" class="rounded-lg border border-border-light bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="服务名称" type="text"/>
+<input id="priorityValue" class="rounded-lg border border-border-light bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-28" placeholder="优先级" type="number"/>
 <button id="btnSavePriority" class="rounded-lg border border-primary bg-primary px-3 py-2 text-sm font-bold text-white hover:bg-blue-600">保存</button>
 </div>
 <div id="priorityStatus" class="text-xs text-secondary-text"></div>
@@ -485,8 +486,8 @@
 
   const resourceIconMap = {
     deployment: "dns",
-    pod: "memory",
     namespace: "inventory_2",
+    pod: "memory",
     statefulset: "storage",
     daemonset: "dns",
     job: "task_alt",

@@ -127,19 +127,6 @@ class ArchAuditService:
                 },
             )
 
-    @staticmethod
-    def _latest_metric_value(timeseries):
-        if not isinstance(timeseries, list):
-            return None
-        for point in reversed(timeseries):
-            if not isinstance(point, (list, tuple)) or len(point) != 2:
-                continue
-            _, value = point
-            if value is None:
-                continue
-            return value
-        return None
-
         processors_with_vis: list[Processor] = []
         for processor in self.arch_auditor.processors:
             if processor.has_visualization():
@@ -156,6 +143,19 @@ class ArchAuditService:
             vis.get(f"/{processor.name()}")(processor.visualize)
 
         self.app.include_router(vis, prefix="/vis")
+
+    @staticmethod
+    def _latest_metric_value(timeseries):
+        if not isinstance(timeseries, list):
+            return None
+        for point in reversed(timeseries):
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                continue
+            _, value = point
+            if value is None:
+                continue
+            return value
+        return None
 
     def _generate_time_scheduler_lifespan(self):
         async def lifespan(app: FastAPI):
@@ -575,6 +575,9 @@ class ArchAuditService:
             "longest_path_total_avg_latency": summary.get(
                 "longest_path_total_avg_latency"
             ),
+            "top_long_paths": summary.get("top_long_paths", []),
+            "long_path_count": summary.get("long_path_count", 0),
+            "long_path_limit": summary.get("long_path_limit", 5),
             "has_long_chain_issue": summary.get("has_long_chain_issue", False),
             "pipe_services": summary.get("pipe_services", []),
             "pipe_service_ratio": summary.get("pipe_service_ratio", 0.0),

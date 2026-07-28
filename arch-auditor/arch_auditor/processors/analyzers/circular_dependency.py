@@ -133,24 +133,24 @@ class CircularDependencyAnalyzer(Processor):
         cycle_descriptions = []
         for index, cycle in enumerate(cycles, start=1):
             cycle_path = " -> ".join(str(node) for node in (cycle + [cycle[0]]))
-            cycle_descriptions.append(f"Cycle {index}: {cycle_path}")
+            cycle_descriptions.append(f"环路 {index}: {cycle_path}")
 
-        description = "Display circular dependencies detected in the service graph."
+        description = "展示服务调用图中检测到的循环依赖。"
         if cycle_descriptions:
             description += " " + "; ".join(cycle_descriptions)
         else:
-            description += " No circular dependencies detected."
+            description += " 当前未检测到循环依赖。"
 
         legend = [
-            {"color": "#ef4444", "label": "services in a cycle"},
-            {"color": "#cbd5e1", "label": "other services"},
+            {"color": "#ef4444", "label": "环路中的服务"},
+            {"color": "#cbd5e1", "label": "其他服务"},
         ]
 
         return templates.TemplateResponse(
             "graph_visualization.html",
             {
                 "request": {},
-                "title": "Circular Dependency Analysis",
+                "title": "循环依赖分析",
                 "description": description,
                 "graph_data": json.dumps({"nodes": nodes, "edges": edges}),
                 "legend": legend,

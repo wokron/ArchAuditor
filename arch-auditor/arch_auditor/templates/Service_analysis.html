@@ -106,7 +106,7 @@
 <button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-full hover:bg-slate-100 text-text-secondary hover:text-text-main transition-colors">
 <span class="material-symbols-outlined" style="font-size: 20px;">help</span>
 </button>
-<div class="flex items-center justify-center rounded-full size-9 ml-2 border border-border ring-2 ring-white shadow-sm bg-primary/10 text-primary text-xs font-bold" data-alt="User Avatar">ZT</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-9 ml-2 border border-border ring-2 ring-white shadow-sm" data-alt="User Avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCNy82E9VMXAaOCX9WoSYIEFIB1E6kzeoUsCA1VT5Lde_Z6VT_KvSJ1mhu5yWmI8wL75zrpFg9aPUXmF4BemzI_kBRlCH6c14JTiWG7pU7nQIL3NcUP0fSwwbwquurkvPyY1p-Edh10qrJrep721oBrIXQQfioQMlPtRzAZB4AJd4aMzpreH-q5mF5KSL25scR6Bz-gVvtkhJjvrabkHTuFv_TMWHOOer99haQ2wCWdDmiQzjg09-i-ry-9J5y8yCo7GMC3ziHFW4zG");'></div>
 </div>
 </div>
 </header>
@@ -274,10 +274,10 @@
     <label class="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">优先级设置</label>
     <div class="relative">
       <select id="prioritySelect" class="w-full bg-white text-text-main border border-border rounded-lg px-4 py-2.5 appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer hover:border-primary/50 transition-colors shadow-sm">
-        <option value="0">P0 - 严重 (Critical)</option>
-        <option value="1">P1 - 高 (High)</option>
-        <option value="2">P2 - 标准 (Standard)</option>
-        <option value="3">P3 - 低 (Low)</option>
+        <option value="0">P0 - 严重</option>
+        <option value="1">P1 - 高</option>
+        <option value="2">P2 - 标准</option>
+        <option value="3">P3 - 低</option>
       </select>
       <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none">expand_more</span>
     </div>
@@ -475,31 +475,31 @@
 
   const roleMeta = {
     Gateway: {
-      label: "Gateway",
+      label: "网关",
       icon: "dns",
       iconClass: "text-primary",
       accent: "border-l-primary",
     },
     Service: {
-      label: "Service",
+      label: "服务",
       icon: "shopping_cart",
       iconClass: "text-primary",
       accent: "border-l-primary",
     },
     Storage: {
-      label: "Storage",
+      label: "存储",
       icon: "inventory_2",
       iconClass: "text-success",
       accent: "border-l-success",
     },
     Security: {
-      label: "Security",
+      label: "安全",
       icon: "lock",
       iconClass: "text-text-secondary",
       accent: "border-l-slate-400",
     },
     External: {
-      label: "External",
+      label: "外部依赖",
       icon: "credit_card",
       iconClass: "text-danger",
       accent: "border-l-danger",

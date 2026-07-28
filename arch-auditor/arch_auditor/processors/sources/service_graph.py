@@ -151,9 +151,9 @@ class ServiceGraphSource(Processor):
             "graph_visualization.html",
             {
                 "request": {},
-                "title": "Service Dependency Graph",
-                "description": "Display dependency relationships between services.",
+                "title": "服务依赖关系图",
+                "description": "展示服务之间的调用依赖关系。",
                 "graph_data": json.dumps({"nodes": nodes, "edges": edges}),
-                "legend": [{"color": "#3b82f6", "label": "service node"}],
+                "legend": [{"color": "#3b82f6", "label": "服务节点"}],
             },
         )

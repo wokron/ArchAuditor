@@ -119,9 +119,10 @@
               >待命</span
             >
             <div
-              class="flex items-center justify-center aspect-square rounded-full size-9 border border-border-subtle ring-2 ring-slate-50 bg-primary/10 text-primary text-xs font-bold"
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-9 border border-border-subtle ring-2 ring-slate-50"
               data-alt="User profile avatar"
-            >ZT</div>
+              style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCYgRcCtO2xmjd9-qaMyMFrtoR6gdh7pXsO065SO5IOBMN2SmNl8qqvzA2i8aQppBjh4vqExGsUEd8340gzUF9ExTMsa2Qs9wDbzv31RXISq0Qbmyt_4ey3ojXnGsiMblMuJ8o_-J3qMgxmXAOV0pGKIYJs-DUBWJJV-3sQqq4tF8Yh-KGo4n-Tna60ZAzeQULOybis1iEZ-F1V6L91OsjgUubTkhWlNhzaR9URKo2msuaRg_gEJWW0VzNrXd6UNQiHMsBOvQiFsqMI');"
+            ></div>
           </div>
         </div>
       </header>
@@ -365,6 +366,108 @@
                 </div>
               </div>
             </div>
+            <section
+              class="rounded-xl bg-white border border-border-subtle shadow-sm overflow-hidden"
+            >
+              <div
+                class="flex flex-col md:flex-row md:items-center justify-between gap-3 px-6 py-4 border-b border-border-subtle bg-gray-50/30"
+              >
+                <div>
+                  <h3 class="font-bold text-lg text-text-main">
+                    架构问题专项视图
+                  </h3>
+                  <p class="text-sm text-text-muted mt-1">
+                    汇总运行时与配置层审计结果，点击问题卡片查看关键指标。
+                  </p>
+                </div>
+                <span
+                  id="architectureIssueStatus"
+                  class="text-xs font-medium text-text-muted bg-slate-50 px-3 py-1.5 rounded-full border border-border-subtle"
+                >
+                  等待审计数据
+                </span>
+              </div>
+              <div
+                class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] gap-6 p-6"
+              >
+                <div class="space-y-5">
+                  <div>
+                    <div class="mb-3">
+                      <h4 class="text-sm font-bold text-text-main">
+                        运行时架构问题
+                      </h4>
+                      <p class="text-xs text-text-muted mt-1">
+                        来自 Jaeger/Prometheus/调用图，重点看链路行为、依赖复杂度和服务职责。
+                      </p>
+                    </div>
+                    <div
+                      id="runtimeArchitectureIssueGrid"
+                      class="grid grid-cols-1 md:grid-cols-2 gap-3"
+                    >
+                      <div
+                        class="rounded-xl border border-border-subtle bg-slate-50 p-4 text-sm text-text-muted"
+                      >
+                        正在加载运行时架构数据...
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="mb-3">
+                      <h4 class="text-sm font-bold text-text-main">
+                        资源与部署配置问题
+                      </h4>
+                      <p class="text-xs text-text-muted mt-1">
+                        来自 K8s 配置、部署历史和 Pod 放置，重点看资源声明、漂移和隔离。
+                      </p>
+                    </div>
+                    <div
+                      id="configArchitectureIssueGrid"
+                      class="grid grid-cols-1 md:grid-cols-2 gap-3"
+                    >
+                      <div
+                        class="rounded-xl border border-border-subtle bg-slate-50 p-4 text-sm text-text-muted"
+                      >
+                        正在加载资源与部署配置数据...
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <aside
+                  class="rounded-xl border border-border-subtle bg-slate-50/60 p-5 min-h-[360px]"
+                >
+                  <div class="flex items-start gap-3 mb-4">
+                    <div
+                      id="architectureIssueDetailIcon"
+                      class="size-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center"
+                    >
+                      <span class="material-symbols-outlined">analytics</span>
+                    </div>
+                    <div class="min-w-0">
+                      <h4
+                        id="architectureIssueDetailTitle"
+                        class="text-base font-bold text-text-main"
+                      >
+                        专项详情
+                      </h4>
+                      <p
+                        id="architectureIssueDetailSubtitle"
+                        class="text-xs text-text-muted mt-1"
+                      >
+                        选择左侧卡片查看该问题的判断依据。
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    id="architectureIssueDetailBody"
+                    class="space-y-4 text-sm text-text-main"
+                  >
+                    <div class="text-sm text-text-muted">
+                      暂无详情数据。
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </section>
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-6">
               <div
                 class="xl:col-span-2 rounded-xl bg-white border border-border-subtle overflow-hidden flex flex-col shadow-sm"
@@ -547,13 +650,13 @@
                     <input
                       id="priorityService"
                       class="rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-text-main outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary"
-                      placeholder="Service Name (e.g. ServiceA)"
+                      placeholder="服务名称，例如 frontend"
                       type="text"
                     />
                     <input
                       id="priorityValue"
                       class="rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm text-text-main outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary w-32"
-                      placeholder="Priority (Int)"
+                      placeholder="优先级整数"
                       type="number"
                     />
                     <button
@@ -792,6 +895,27 @@
       const metricCycles = document.getElementById("metricCycles");
       const metricSla = document.getElementById("metricSla");
       const metricResourceRisk = document.getElementById("metricResourceRisk");
+      const architectureIssueStatus = document.getElementById(
+        "architectureIssueStatus"
+      );
+      const runtimeArchitectureIssueGrid = document.getElementById(
+        "runtimeArchitectureIssueGrid"
+      );
+      const configArchitectureIssueGrid = document.getElementById(
+        "configArchitectureIssueGrid"
+      );
+      const architectureIssueDetailIcon = document.getElementById(
+        "architectureIssueDetailIcon"
+      );
+      const architectureIssueDetailTitle = document.getElementById(
+        "architectureIssueDetailTitle"
+      );
+      const architectureIssueDetailSubtitle = document.getElementById(
+        "architectureIssueDetailSubtitle"
+      );
+      const architectureIssueDetailBody = document.getElementById(
+        "architectureIssueDetailBody"
+      );
       const violationsTableBody = document.getElementById(
         "violationsTableBody"
       );
@@ -963,6 +1087,821 @@
           risk = "中";
         }
         setText(metricResourceRisk, risk);
+      }
+
+      let activeArchitectureIssueKey = "dependency";
+      let latestArchitectureIssues = [];
+
+      const issueEndpoints = {
+        dependency: "/api/dependency-edges",
+        monolithic: "/api/monolithic-services",
+        overDecomposition: "/api/over-decomposition",
+        resourceUtilization: "/api/resource-utilization",
+        configDrift: "/api/config-drift",
+        maintainability: "/api/maintainability",
+        isolation: "/api/isolation",
+      };
+
+      function asArray(value) {
+        return Array.isArray(value) ? value : [];
+      }
+
+      function numberOrNull(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+      }
+
+      function formatNumber(value, digits = 2) {
+        const number = numberOrNull(value);
+        if (number === null) return "-";
+        if (Math.abs(number) >= 1000) return number.toLocaleString();
+        return Number.isInteger(number) ? String(number) : number.toFixed(digits);
+      }
+
+      function formatMs(value) {
+        const number = numberOrNull(value);
+        if (number === null) return "-";
+        return `${formatNumber(number, 1)} ms`;
+      }
+
+      function formatPercent(value) {
+        const number = numberOrNull(value);
+        if (number === null) return "-";
+        const percent = Math.abs(number) <= 1 ? number * 100 : number;
+        return `${formatNumber(percent, 1)}%`;
+      }
+
+      function formatBytes(value) {
+        const number = numberOrNull(value);
+        if (number === null) return "-";
+        const units = ["B", "KiB", "MiB", "GiB"];
+        let size = Math.abs(number);
+        let unit = 0;
+        while (size >= 1024 && unit < units.length - 1) {
+          size /= 1024;
+          unit += 1;
+        }
+        const sign = number < 0 ? "-" : "";
+        return `${sign}${formatNumber(size, unit === 0 ? 0 : 1)} ${units[unit]}`;
+      }
+
+      function issueSeverity(count, hasError) {
+        if (hasError) return "unknown";
+        if (count >= 3) return "critical";
+        if (count > 0) return "warning";
+        return "ok";
+      }
+
+      function issueStatusMeta(severity) {
+        if (severity === "critical") {
+          return {
+            label: "高风险",
+            badge: "bg-red-50 text-red-700 border-red-200",
+            iconBox: "bg-red-50 text-red-600",
+            border: "border-red-200",
+          };
+        }
+        if (severity === "warning") {
+          return {
+            label: "需关注",
+            badge: "bg-amber-50 text-amber-700 border-amber-200",
+            iconBox: "bg-amber-50 text-amber-600",
+            border: "border-amber-200",
+          };
+        }
+        if (severity === "unknown") {
+          return {
+            label: "无数据",
+            badge: "bg-slate-50 text-slate-600 border-slate-200",
+            iconBox: "bg-slate-100 text-slate-500",
+            border: "border-border-subtle",
+          };
+        }
+        return {
+          label: "正常",
+          badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+          iconBox: "bg-emerald-50 text-emerald-600",
+          border: "border-emerald-200",
+        };
+      }
+
+      function renderMetricGrid(items) {
+        return `
+          <div class="grid grid-cols-2 gap-3">
+            ${items
+              .map(
+                (item) => `
+                  <div class="rounded-lg border border-border-subtle bg-white px-3 py-3">
+                    <div class="text-[11px] text-text-muted mb-1">${escapeHtml(
+                      item.label
+                    )}</div>
+                    <div class="text-lg font-bold text-text-main">${escapeHtml(
+                      item.value
+                    )}</div>
+                    ${
+                      item.hint
+                        ? `<div class="text-[11px] text-text-muted mt-1">${escapeHtml(
+                            item.hint
+                          )}</div>`
+                        : ""
+                    }
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+        `;
+      }
+
+      function renderDetailTable(headers, rows, emptyText) {
+        if (!rows.length) {
+          return `<div class="rounded-lg border border-border-subtle bg-white p-4 text-sm text-text-muted">${escapeHtml(
+            emptyText || "暂无明细"
+          )}</div>`;
+        }
+        return `
+          <div class="overflow-x-auto rounded-lg border border-border-subtle bg-white">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-text-muted font-bold">
+                <tr>
+                  ${headers
+                    .map((header) => `<th class="px-3 py-2">${escapeHtml(header)}</th>`)
+                    .join("")}
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-subtle">
+                ${rows
+                  .map(
+                    (row) => `
+                      <tr class="hover:bg-slate-50">
+                        ${row
+                          .map(
+                            (cell) =>
+                              `<td class="px-3 py-2 align-top text-text-main">${escapeHtml(
+                                cell === null || typeof cell === "undefined"
+                                  ? "-"
+                                  : cell
+                              )}</td>`
+                          )
+                          .join("")}
+                      </tr>
+                    `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function renderVisualizationLink(url, label) {
+        return `
+          <div class="mb-3 flex justify-end">
+            <a
+              class="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-white px-3 py-2 text-xs font-bold text-primary hover:border-primary hover:bg-blue-50 transition"
+              href="${escapeHtml(url)}"
+            >
+              <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+              <span>${escapeHtml(label)}</span>
+            </a>
+          </div>
+        `;
+      }
+
+      function resultError(data) {
+        return data && data.__error ? String(data.__error) : "";
+      }
+
+      function buildDependencyIssue(data) {
+        const error = resultError(data);
+        const edges = asArray(data && data.edges);
+        const latencyThresholdMs = 1000;
+        const errorRateThreshold = 0.05;
+        const riskyEdges = edges.filter((edge) => {
+          const errorCount = numberOrNull(edge.edge_error_count) || 0;
+          const errorRate = numberOrNull(edge.edge_error_rate) || 0;
+          const avgDuration = numberOrNull(edge.edge_avg_duration_ms) || 0;
+          const sourceLatency = numberOrNull(edge.source_latest_latency) || 0;
+          const targetLatency = numberOrNull(edge.target_latest_latency) || 0;
+          const sourceErrorRate = numberOrNull(edge.source_latest_error_rate) || 0;
+          const targetErrorRate = numberOrNull(edge.target_latest_error_rate) || 0;
+          const status = String(edge.dependency_correlation_status || "").toLowerCase();
+          return (
+            errorCount > 0 ||
+            errorRate >= errorRateThreshold ||
+            avgDuration >= latencyThresholdMs ||
+            sourceLatency >= latencyThresholdMs ||
+            targetLatency >= latencyThresholdMs ||
+            sourceErrorRate >= errorRateThreshold ||
+            targetErrorRate >= errorRateThreshold ||
+            (status && !["ok", "normal", "stable", "unknown"].includes(status))
+          );
+        });
+        const edgeRiskScore = (edge) => {
+          return (
+            (numberOrNull(edge.edge_error_count) || 0) * 1000 +
+            Math.max(
+              numberOrNull(edge.edge_avg_duration_ms) || 0,
+              numberOrNull(edge.source_latest_latency) || 0,
+              numberOrNull(edge.target_latest_latency) || 0
+            ) +
+            Math.max(
+              numberOrNull(edge.edge_error_rate) || 0,
+              numberOrNull(edge.source_latest_error_rate) || 0,
+              numberOrNull(edge.target_latest_error_rate) || 0
+            ) *
+              10000
+          );
+        };
+        const topRows = edges
+          .slice()
+          .sort((a, b) => edgeRiskScore(b) - edgeRiskScore(a))
+          .slice(0, 6)
+          .map((edge) => [
+            `${edge.source || "-"} -> ${edge.target || "-"}`,
+            formatNumber(edge.call_count, 0),
+            formatMs(
+              numberOrNull(edge.edge_avg_duration_ms) ??
+                Math.max(
+                  numberOrNull(edge.source_latest_latency) || 0,
+                  numberOrNull(edge.target_latest_latency) || 0
+                )
+            ),
+            formatPercent(
+              numberOrNull(edge.edge_error_rate) ??
+                Math.max(
+                  numberOrNull(edge.source_latest_error_rate) || 0,
+                  numberOrNull(edge.target_latest_error_rate) || 0
+                )
+            ),
+          ]);
+        return {
+          key: "dependency",
+          group: "runtime",
+          title: "依赖关系异常",
+          subtitle: "关注依赖边延迟、错误率和调用相关性。",
+          icon: "route",
+          count: error ? 0 : riskyEdges.length,
+          primary: `${edges.length} 条边`,
+          secondary: error || `异常边 ${riskyEdges.length} 条`,
+          severity: issueSeverity(riskyEdges.length, Boolean(error)),
+          detailHtml:
+            renderMetricGrid([
+              { label: "依赖边总数", value: String(edges.length) },
+              { label: "异常依赖边", value: String(riskyEdges.length) },
+              {
+                label: "最高平均延迟",
+                value: formatMs(
+                  Math.max(
+                    0,
+                    ...edges.map((edge) =>
+                      Math.max(
+                        numberOrNull(edge.edge_avg_duration_ms) || 0,
+                        numberOrNull(edge.source_latest_latency) || 0,
+                        numberOrNull(edge.target_latest_latency) || 0
+                      )
+                    )
+                  )
+                ),
+              },
+              {
+                label: "错误边数量",
+                value: String(
+                  edges.filter(
+                    (edge) =>
+                      (numberOrNull(edge.edge_error_count) || 0) > 0 ||
+                      (numberOrNull(edge.edge_error_rate) || 0) >=
+                        errorRateThreshold ||
+                      (numberOrNull(edge.source_latest_error_rate) || 0) >=
+                        errorRateThreshold ||
+                      (numberOrNull(edge.target_latest_error_rate) || 0) >=
+                        errorRateThreshold
+                  ).length
+                ),
+              },
+            ]) +
+            renderDetailTable(
+              ["依赖边", "调用次数", "耗时信号", "错误率信号"],
+              topRows,
+              "暂无依赖边数据，请先触发审计并确认 Jaeger 有链路数据。"
+            ),
+        };
+      }
+
+      function buildMonolithicIssue(data) {
+        const error = resultError(data);
+        const items = asArray(data && data.items);
+        const risky = items.filter(
+          (item) =>
+            item.has_architecture_issue ||
+            item.has_resource_monolith_issue ||
+            item.has_resource_cpu_monolith_issue ||
+            item.has_resource_memory_monolith_issue
+        );
+        const rows = items
+          .slice()
+          .sort((a, b) => (numberOrNull(b.degree) || 0) - (numberOrNull(a.degree) || 0))
+          .slice(0, 6)
+          .map((item) => [
+            item.service,
+            formatNumber(item.in_degree, 0),
+            formatNumber(item.out_degree, 0),
+            formatNumber(item.degree, 0),
+            item.has_architecture_issue ? "是" : "否",
+          ]);
+        return {
+          key: "monolithic",
+          group: "runtime",
+          title: "单体服务倾向",
+          subtitle: "关注出入度过高、资源集中和承担过多职责的服务。",
+          icon: "hub",
+          count: error ? 0 : risky.length,
+          primary: `${items.length} 个服务`,
+          secondary: error || `疑似单体 ${risky.length} 个`,
+          severity: issueSeverity(risky.length, Boolean(error)),
+          detailHtml:
+            renderMetricGrid([
+              { label: "分析服务数", value: String(items.length) },
+              { label: "疑似单体", value: String(risky.length) },
+              {
+                label: "最高总度数",
+                value: formatNumber(
+                  Math.max(0, ...items.map((item) => numberOrNull(item.degree) || 0)),
+                  0
+                ),
+              },
+              {
+                label: "资源集中风险",
+                value: String(items.filter((item) => item.has_resource_monolith_issue).length),
+              },
+            ]) +
+            renderDetailTable(
+              ["服务", "入度", "出度", "总度数", "超阈值"],
+              rows,
+              "暂无单体服务分析数据。"
+            ),
+        };
+      }
+
+      function buildOverDecompositionIssue(data) {
+        const error = resultError(data);
+        const summary = (data && data.summary) || {};
+        const coPairs = asArray(summary.co_deployed_pairs);
+        const topLongPaths = asArray(summary.top_long_paths);
+        const pipeServices = asArray(summary.pipe_services);
+        const fanoutServices = asArray(summary.fanout_amplification_services);
+        const longPathCount =
+          numberOrNull(summary.long_path_count) ??
+          (summary.has_long_chain_issue ? 1 : 0);
+        const issueCount =
+          longPathCount +
+          (summary.has_pipe_service_ratio_issue ? pipeServices.length : 0) +
+          fanoutServices.length +
+          coPairs.length;
+        const longPathRows =
+          topLongPaths.length > 0
+            ? topLongPaths.slice(0, 5).map((path, index) => {
+                const services = asArray(path.services);
+                return [
+                  `长调用链 ${path.rank || index + 1}`,
+                  services.join(" -> ") || "-",
+                  `${formatNumber(path.service_count || services.length, 0)} / ${formatNumber(
+                    summary.path_service_threshold,
+                    0
+                  )}`,
+                  "异常",
+                ];
+              })
+            : [
+                [
+                  "最长调用链",
+                  asArray(summary.longest_path_services).join(" -> ") || "-",
+                  `${formatNumber(summary.longest_path_service_count, 0)} / ${formatNumber(
+                    summary.path_service_threshold,
+                    0
+                  )}`,
+                  summary.has_long_chain_issue ? "异常" : "正常",
+                ],
+              ];
+        const pipeRows = pipeServices.slice(0, 4).map((item) => [
+          "管道服务",
+          `${item.upstream || "-"} -> ${item.service || "-"} -> ${item.downstream || "-"}`,
+          `${formatPercent(summary.pipe_service_ratio)} / ${formatPercent(
+            summary.pipe_service_ratio_threshold
+          )}`,
+          summary.has_pipe_service_ratio_issue ? "异常" : "关注",
+        ]);
+        const fanoutRows = fanoutServices.slice(0, 4).map((item) => [
+          "扇出放大",
+          `${item.upstream || "-"} -> ${item.service || "-"} -> ${item.downstream || "-"}`,
+          `${formatNumber(item.amplification_ratio)}x / ${formatNumber(
+            summary.fanout_amplification_threshold
+          )}x`,
+          "异常",
+        ]);
+        const rows = [
+          ...longPathRows,
+          ...pipeRows,
+          ...fanoutRows,
+          ...coPairs.slice(0, 4).map((pair) => [
+            "共同部署",
+            `${pair.service_a || "-"} / ${pair.service_b || "-"}`,
+            `重叠 ${formatPercent(pair.overlap_ratio)}`,
+            "关注",
+          ]),
+        ];
+        return {
+          key: "overDecomposition",
+          group: "runtime",
+          title: "过度拆分",
+          subtitle: "关注过长调用链、管道服务、扇出放大和紧耦合部署。",
+          icon: "schema",
+          count: error ? 0 : issueCount,
+          primary: `${formatNumber(summary.longest_path_service_count, 0)} 个服务最长链`,
+          secondary:
+            error || `${formatNumber(longPathCount, 0)} 条长链 / 触发项 ${issueCount} 个`,
+          severity: issueSeverity(issueCount, Boolean(error)),
+          detailHtml:
+            renderVisualizationLink(
+              "/vis/OverDecompositionAnalyzer",
+              "打开过度拆分可视化"
+            ) +
+            renderMetricGrid([
+              {
+                label: "入口服务",
+                value: String(asArray(summary.root_services).length),
+                hint: asArray(summary.root_services).join(", "),
+              },
+              {
+                label: "最长链路",
+                value: formatNumber(summary.longest_path_service_count, 0),
+                hint: `阈值 ${formatNumber(summary.path_service_threshold, 0)}`,
+              },
+              {
+                label: "长链条数",
+                value: formatNumber(longPathCount, 0),
+                hint: `展示前 ${formatNumber(summary.long_path_limit || 5, 0)} 条`,
+              },
+              {
+                label: "链路平均耗时",
+                value: formatMs(summary.longest_path_total_avg_latency),
+              },
+              { label: "共同部署对", value: String(coPairs.length) },
+            ]) +
+            renderDetailTable(
+              ["检查项", "对象", "指标", "状态"],
+              rows,
+              "暂无过度拆分分析数据。"
+            ),
+        };
+      }
+
+      function buildResourceUtilizationIssue(data) {
+        const error = resultError(data);
+        const items = asArray(data && data.items);
+        const risky = items.filter(
+          (item) =>
+            item.has_missing_request_issue ||
+            item.has_waste_issue ||
+            item.has_cpu_waste_issue ||
+            item.has_memory_waste_issue ||
+            item.has_limit_risk_issue ||
+            item.has_cpu_limit_risk_issue ||
+            item.has_memory_limit_risk_issue
+        );
+        const rows = risky.slice(0, 6).map((item) => {
+          const reasons = [
+            item.has_missing_request_issue ? "缺少 request" : "",
+            item.has_waste_issue ? "资源浪费" : "",
+            item.has_limit_risk_issue ? "limit 风险" : "",
+          ].filter(Boolean);
+          return [
+            item.service,
+            item.container,
+            reasons.join(" / ") || "关注",
+            formatNumber(item.avg_cpu_usage),
+            formatBytes(item.avg_memory_usage_bytes),
+          ];
+        });
+        return {
+          key: "resourceUtilization",
+          group: "config",
+          title: "资源利用异常",
+          subtitle: "关注 request 缺失、资源浪费和 limit 风险。",
+          icon: "monitoring",
+          count: error ? 0 : risky.length,
+          primary: `${items.length} 个容器`,
+          secondary: error || `异常 ${risky.length} 个`,
+          severity: issueSeverity(risky.length, Boolean(error)),
+          detailHtml:
+            renderMetricGrid([
+              { label: "容器样本", value: String(items.length) },
+              { label: "资源异常", value: String(risky.length) },
+              {
+                label: "缺少 request",
+                value: String(items.filter((item) => item.has_missing_request_issue).length),
+              },
+              {
+                label: "limit 风险",
+                value: String(items.filter((item) => item.has_limit_risk_issue).length),
+              },
+            ]) +
+            renderDetailTable(
+              ["服务", "容器", "问题", "平均 CPU", "平均内存"],
+              rows,
+              "暂无资源利用异常。"
+            ),
+        };
+      }
+
+      function buildConfigDriftIssue(data) {
+        const error = resultError(data);
+        const items = asArray(data && data.items);
+        const risky = items.filter((item) => item.is_drifted || item.is_manual_change);
+        const rows = risky.slice(0, 6).map((item) => [
+          item.resource || `${item.kind || "-"} ${item.name || "-"}`,
+          item.namespace,
+          item.is_manual_change ? "人工变更" : "配置漂移",
+          item.latest_changed_by || item.latest_observed_by || "-",
+          item.latest_changed_at || item.latest_observed_at || "-",
+        ]);
+        return {
+          key: "configDrift",
+          group: "config",
+          title: "配置漂移",
+          subtitle: "关注线上配置与期望状态不一致、人工变更痕迹。",
+          icon: "manage_history",
+          count: error ? 0 : risky.length,
+          primary: `${items.length} 个资源`,
+          secondary: error || `漂移 ${risky.length} 个`,
+          severity: issueSeverity(risky.length, Boolean(error)),
+          detailHtml:
+            renderMetricGrid([
+              { label: "资源记录", value: String(items.length) },
+              { label: "漂移资源", value: String(risky.length) },
+              {
+                label: "人工变更",
+                value: String(items.filter((item) => item.is_manual_change).length),
+              },
+              {
+                label: "事件来源",
+                value: String(
+                  new Set(items.map((item) => item.event_source).filter(Boolean)).size
+                ),
+              },
+            ]) +
+            renderDetailTable(
+              ["资源", "命名空间", "类型", "操作者", "时间"],
+              rows,
+              "暂无配置漂移记录。"
+            ),
+        };
+      }
+
+      function buildMaintainabilityIssue(data) {
+        const error = resultError(data);
+        const summary = (data && data.summary) || {};
+        const startup = asArray(summary.startup_issues);
+        const deploy = asArray(summary.deploy_frequency_issues);
+        const rollback = asArray(summary.rollback_issues);
+        const coDeploy = asArray(summary.co_deployment_issues);
+        const issueCount = startup.length + deploy.length + rollback.length + coDeploy.length;
+        const rows = [
+          ...startup.slice(0, 3).map((item) => [
+            "启动慢",
+            item.service || item.pod || "-",
+            `${formatNumber(item.startup_seconds)} s`,
+            `阈值 ${formatNumber(summary.startup_threshold_seconds)} s`,
+          ]),
+          ...rollback.slice(0, 3).map((item) => [
+            "回滚频繁",
+            item.service || "-",
+            formatPercent(item.rollback_ratio),
+            `阈值 ${formatPercent(summary.rollback_ratio_threshold)}`,
+          ]),
+          ...deploy.slice(0, 3).map((item) => [
+            "部署频率低",
+            item.service || "-",
+            formatPercent(item.deploy_frequency_ratio),
+            "关注",
+          ]),
+          ...coDeploy.slice(0, 3).map((item) => [
+            "共同部署",
+            `${item.service_a || "-"} / ${item.service_b || "-"}`,
+            formatPercent(item.overlap_ratio),
+            "紧耦合",
+          ]),
+        ].slice(0, 8);
+        return {
+          key: "maintainability",
+          group: "runtime",
+          title: "可维护性风险",
+          subtitle: "关注启动慢、回滚频繁、部署频率异常和共同部署。",
+          icon: "build_circle",
+          count: error ? 0 : issueCount,
+          primary: `${issueCount} 个风险`,
+          secondary: error || `回滚 ${rollback.length} 项`,
+          severity: issueSeverity(issueCount, Boolean(error)),
+          detailHtml:
+            renderMetricGrid([
+              { label: "启动问题", value: String(startup.length) },
+              { label: "部署频率问题", value: String(deploy.length) },
+              { label: "回滚问题", value: String(rollback.length) },
+              { label: "共同部署问题", value: String(coDeploy.length) },
+            ]) +
+            renderDetailTable(
+              ["类型", "对象", "指标", "说明"],
+              rows,
+              "暂无可维护性风险。"
+            ),
+        };
+      }
+
+      function buildIsolationIssue(data) {
+        const error = resultError(data);
+        const summary = (data && data.summary) || {};
+        const sameNode = asArray(summary.same_node_replica_services);
+        const singleZone = asArray(summary.single_zone_services);
+        const colocated = asArray(summary.co_located_service_groups);
+        const placements = asArray(summary.placements);
+        const issueCount = sameNode.length + singleZone.length + colocated.length;
+        const rows = [
+          ...sameNode.slice(0, 4).map((item) => [
+            "副本同节点",
+            item.service || item.name || String(item),
+            item.node || item.node_name || "-",
+            "缺少物理隔离",
+          ]),
+          ...singleZone.slice(0, 4).map((item) => [
+            "单可用区",
+            item.service || item.name || String(item),
+            item.zone || item.topology_key || "-",
+            "可用区风险",
+          ]),
+          ...colocated.slice(0, 4).map((item) => [
+            "服务共址",
+            asArray(item.services).join(", ") || item.service || "-",
+            item.node || item.node_name || "-",
+            "关注",
+          ]),
+        ].slice(0, 8);
+        return {
+          key: "isolation",
+          group: "config",
+          title: "物理隔离不足",
+          subtitle: "关注副本同节点、单可用区和关键服务共址。",
+          icon: "lan",
+          count: error ? 0 : issueCount,
+          primary: `${placements.length} 条放置记录`,
+          secondary: error || `隔离风险 ${issueCount} 个`,
+          severity: issueSeverity(issueCount, Boolean(error)),
+          detailHtml:
+            renderVisualizationLink("/vis/IsolationAnalyzer", "打开物理隔离可视化") +
+            renderMetricGrid([
+              { label: "放置记录", value: String(placements.length) },
+              { label: "副本同节点", value: String(sameNode.length) },
+              { label: "单可用区", value: String(singleZone.length) },
+              { label: "服务共址", value: String(colocated.length) },
+            ]) +
+            renderDetailTable(
+              ["类型", "对象", "节点/区域", "判断"],
+              rows,
+              "暂无物理隔离风险。"
+            ),
+        };
+      }
+
+      function buildArchitectureIssues(results) {
+        return [
+          buildDependencyIssue(results.dependency),
+          buildMonolithicIssue(results.monolithic),
+          buildOverDecompositionIssue(results.overDecomposition),
+          buildResourceUtilizationIssue(results.resourceUtilization),
+          buildConfigDriftIssue(results.configDrift),
+          buildMaintainabilityIssue(results.maintainability),
+          buildIsolationIssue(results.isolation),
+        ];
+      }
+
+      function renderArchitectureIssueDetail(issue) {
+        if (!issue || !architectureIssueDetailBody) return;
+        const meta = issueStatusMeta(issue.severity);
+        if (architectureIssueDetailIcon) {
+          architectureIssueDetailIcon.className = `size-11 rounded-lg ${meta.iconBox} flex items-center justify-center`;
+          architectureIssueDetailIcon.innerHTML = `<span class="material-symbols-outlined">${issue.icon}</span>`;
+        }
+        setText(architectureIssueDetailTitle, issue.title);
+        setText(architectureIssueDetailSubtitle, issue.subtitle);
+        architectureIssueDetailBody.innerHTML = issue.detailHtml || "";
+      }
+
+      function renderArchitectureIssueCards(issues) {
+        if (!runtimeArchitectureIssueGrid || !configArchitectureIssueGrid) return;
+        latestArchitectureIssues = issues;
+        if (!issues.some((issue) => issue.key === activeArchitectureIssueKey)) {
+          activeArchitectureIssueKey = issues[0] ? issues[0].key : "";
+        }
+        const renderGroup = (group) => {
+          const groupIssues = issues.filter((issue) => issue.group === group);
+          if (!groupIssues.length) {
+            return `
+              <div class="rounded-xl border border-border-subtle bg-slate-50 p-4 text-sm text-text-muted">
+                暂无该类专项数据。
+              </div>
+            `;
+          }
+          return groupIssues
+            .map((issue) => {
+            const meta = issueStatusMeta(issue.severity);
+            const active = issue.key === activeArchitectureIssueKey;
+            return `
+              <button
+                type="button"
+                class="text-left rounded-xl border ${
+                  active ? "border-primary ring-2 ring-primary/10" : meta.border
+                } bg-white p-4 hover:border-primary/50 hover:shadow-sm transition-all"
+                data-architecture-issue="${issue.key}"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start gap-3 min-w-0">
+                    <div class="size-10 rounded-lg ${meta.iconBox} flex items-center justify-center flex-none">
+                      <span class="material-symbols-outlined">${issue.icon}</span>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="font-bold text-text-main">${escapeHtml(
+                        issue.title
+                      )}</div>
+                      <div class="text-xs text-text-muted mt-1 line-clamp-2">${escapeHtml(
+                        issue.subtitle
+                      )}</div>
+                    </div>
+                  </div>
+                  <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${meta.badge}">
+                    ${meta.label}
+                  </span>
+                </div>
+                <div class="mt-4 flex items-end justify-between gap-3">
+                  <div>
+                    <div class="text-2xl font-extrabold text-text-main">${escapeHtml(
+                      issue.count
+                    )}</div>
+                    <div class="text-xs text-text-muted">风险项</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm font-bold text-text-main">${escapeHtml(
+                      issue.primary
+                    )}</div>
+                    <div class="text-xs text-text-muted mt-1">${escapeHtml(
+                      issue.secondary
+                    )}</div>
+                  </div>
+                </div>
+              </button>
+            `;
+          })
+            .join("");
+        };
+        runtimeArchitectureIssueGrid.innerHTML = renderGroup("runtime");
+        configArchitectureIssueGrid.innerHTML = renderGroup("config");
+        document
+          .querySelectorAll("[data-architecture-issue]")
+          .forEach((card) => {
+            card.addEventListener("click", () => {
+              activeArchitectureIssueKey = card.getAttribute(
+                "data-architecture-issue"
+              );
+              renderArchitectureIssueCards(latestArchitectureIssues);
+              const selected = latestArchitectureIssues.find(
+                (issue) => issue.key === activeArchitectureIssueKey
+              );
+              renderArchitectureIssueDetail(selected);
+            });
+          });
+        const selected = issues.find((issue) => issue.key === activeArchitectureIssueKey);
+        renderArchitectureIssueDetail(selected || issues[0]);
+      }
+
+      async function refreshArchitectureIssues() {
+        if (!runtimeArchitectureIssueGrid || !configArchitectureIssueGrid) return;
+        setText(architectureIssueStatus, "正在加载专项数据...");
+        const entries = await Promise.all(
+          Object.entries(issueEndpoints).map(async ([key, endpoint]) => {
+            try {
+              return [key, await jsonFetch(endpoint)];
+            } catch (error) {
+              return [key, { __error: error && error.message ? error.message : "读取失败" }];
+            }
+          })
+        );
+        const results = Object.fromEntries(entries);
+        const issues = buildArchitectureIssues(results);
+        const totalRisks = issues.reduce((sum, issue) => sum + Number(issue.count || 0), 0);
+        const riskTypes = issues.filter((issue) => Number(issue.count || 0) > 0).length;
+        setText(
+          architectureIssueStatus,
+          `已覆盖 ${issues.length} 类专项问题，当前 ${riskTypes} 类存在风险，共 ${totalRisks} 个风险项`
+        );
+        renderArchitectureIssueCards(issues);
       }
 
       function renderViolations(reports) {
@@ -1181,6 +2120,7 @@
         await Promise.allSettled([
           refreshReports(),
           refreshPriorities(),
+          refreshArchitectureIssues(),
         ]);
       }
 

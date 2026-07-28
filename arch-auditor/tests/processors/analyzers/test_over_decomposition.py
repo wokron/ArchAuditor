@@ -37,12 +37,22 @@ def test_over_decomposition_long_chain_and_pipe_services():
     auditor.invoke()
 
     messages = reporter.messages
-    assert any("Long dependency chain detected" in msg for msg in messages)
+    assert any("Long dependency chains detected" in msg for msg in messages)
     assert any("pipe services" in msg for msg in messages)
 
     summary = auditor.system_state.extra_attrs["over_decomposition_summary"]
     assert summary["has_long_chain_issue"] is True
     assert summary["longest_path_service_count"] == 7
+    assert summary["long_path_count"] == 1
+    assert summary["top_long_paths"][0]["services"] == [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+    ]
     assert summary["has_pipe_service_ratio_issue"] is True
     assert [item["service"] for item in summary["pipe_services"]] == [
         "B",
@@ -176,6 +186,104 @@ def test_over_decomposition_flags_path_at_threshold():
     summary = auditor.system_state.extra_attrs["over_decomposition_summary"]
     assert summary["longest_path_service_count"] == 5
     assert summary["has_long_chain_issue"] is True
+
+
+def test_over_decomposition_long_chain_with_cycle():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("frontend-web", "frontend-proxy"),
+                    ("frontend-proxy", "frontend"),
+                    ("frontend", "checkout"),
+                    ("checkout", "shipping"),
+                    ("shipping", "quote"),
+                    ("frontend", "recommendation"),
+                    ("recommendation", "frontend"),
+                ],
+            },
+            "SingleRootDAGSource": {},
+            "OverDecompositionAnalyzer": {
+                "path_service_threshold": 5,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    summary = auditor.system_state.extra_attrs["over_decomposition_summary"]
+    assert summary["longest_path_services"] == [
+        "frontend-web",
+        "frontend-proxy",
+        "frontend",
+        "checkout",
+        "shipping",
+        "quote",
+    ]
+    assert summary["longest_path_service_count"] == 6
+    assert summary["has_long_chain_issue"] is True
+
+
+def test_over_decomposition_reports_top_long_paths():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [
+                    ("entry", "a1"),
+                    ("a1", "a2"),
+                    ("a2", "a3"),
+                    ("a3", "a4"),
+                    ("entry", "b1"),
+                    ("b1", "b2"),
+                    ("b2", "b3"),
+                    ("b3", "b4"),
+                    ("b4", "b5"),
+                    ("entry", "c1"),
+                    ("c1", "c2"),
+                    ("c2", "c3"),
+                    ("c3", "c4"),
+                    ("c4", "c5"),
+                    ("c5", "c6"),
+                ],
+            },
+            "SingleRootDAGSource": {},
+            "OverDecompositionAnalyzer": {
+                "path_service_threshold": 5,
+                "long_path_limit": 2,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.invoke()
+
+    summary = auditor.system_state.extra_attrs["over_decomposition_summary"]
+    assert summary["has_long_chain_issue"] is True
+    assert summary["long_path_count"] == 3
+    assert summary["long_path_limit"] == 2
+    assert len(summary["top_long_paths"]) == 2
+    assert summary["top_long_paths"][0]["services"] == [
+        "entry",
+        "c1",
+        "c2",
+        "c3",
+        "c4",
+        "c5",
+        "c6",
+    ]
+    assert summary["top_long_paths"][1]["services"] == [
+        "entry",
+        "b1",
+        "b2",
+        "b3",
+        "b4",
+        "b5",
+    ]
 
 
 def test_over_decomposition_detects_fanout_amplification():

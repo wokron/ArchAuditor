@@ -6,6 +6,7 @@ PROFILE_DIR="$ROOT_DIR/k8s-faults/runtime-flags"
 NAMESPACE="${NAMESPACE:-default}"
 FLAGD_DEPLOYMENT="${FLAGD_DEPLOYMENT:-flagd}"
 RESTART_WORKLOADS="${RESTART_WORKLOADS:-true}"
+RESET_BEFORE_PROFILE="${RESET_BEFORE_PROFILE:-true}"
 
 usage() {
   cat <<'EOF'
@@ -27,6 +28,7 @@ Environment:
   NAMESPACE=default
   FLAGD_DEPLOYMENT=flagd
   RESTART_WORKLOADS=true
+  RESET_BEFORE_PROFILE=true     Reset known runtime fault flags before applying a profile.
 EOF
 }
 
@@ -48,6 +50,7 @@ if [[ -z "$profile" || "$profile" == "-h" || "$profile" == "--help" ]]; then
 fi
 
 profile_file="$PROFILE_DIR/$profile.json"
+reset_file="$PROFILE_DIR/reset-runtime.json"
 if [[ ! -f "$profile_file" ]]; then
   echo "Unknown runtime profile: $profile" >&2
   usage
@@ -67,11 +70,11 @@ kubectl get configmap flagd-config \
   -n "$NAMESPACE" \
   -o jsonpath='{.data.demo\.flagd\.json}' > "$tmp_config"
 
-"$(python_bin)" - "$tmp_config" "$profile_file" "$tmp_data" <<'PY'
+"$(python_bin)" - "$tmp_config" "$profile_file" "$tmp_data" "$reset_file" "$profile" "$RESET_BEFORE_PROFILE" <<'PY'
 import json
 import sys
 
-config_path, profile_path, output_path = sys.argv[1:4]
+config_path, profile_path, output_path, reset_path, profile_name, reset_before = sys.argv[1:7]
 
 with open(config_path, "r", encoding="utf-8") as fh:
     config = json.load(fh)
@@ -79,9 +82,14 @@ with open(config_path, "r", encoding="utf-8") as fh:
 with open(profile_path, "r", encoding="utf-8") as fh:
     profile = json.load(fh)
 
+base_profile = {}
+if reset_before.lower() == "true" and profile_name != "reset-runtime":
+    with open(reset_path, "r", encoding="utf-8") as fh:
+        base_profile = json.load(fh)
+
 flags = config.get("flags", {})
 
-for flag_name, variant in profile.items():
+for flag_name, variant in {**base_profile, **profile}.items():
     if flag_name not in flags:
         raise SystemExit(f"Flag '{flag_name}' does not exist.")
 
