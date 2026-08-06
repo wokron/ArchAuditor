@@ -1,6 +1,8 @@
 import statistics
+from pathlib import Path
 
 import networkx as nx
+from fastapi.templating import Jinja2Templates
 
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
@@ -384,7 +386,174 @@ class ResourceUtilizationAnalyzer(Processor):
 
     @staticmethod
     def has_visualization() -> bool:
-        return False
+        return True
 
     def visualize(self):
-        pass
+        templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
+        templates = Jinja2Templates(directory=str(templates_dir))
+
+        summaries = (
+            self.context.system_state.extra_attrs.get(
+                "resource_utilization_summary", []
+            )
+            or []
+        )
+
+        def clamp_width(value: float | None) -> float:
+            if value is None:
+                return 0.0
+            return max(0.0, min(100.0, value))
+
+        def ratio_percent(numerator: float | None, denominator: float | None) -> float | None:
+            if numerator is None or denominator is None or denominator <= 0:
+                return None
+            return numerator / denominator * 100
+
+        def format_percent(value: float | None) -> str:
+            if value is None:
+                return "-"
+            return f"{value:.1f}%"
+
+        def format_cpu(value: float | None) -> str:
+            if value is None:
+                return "-"
+            if value <= 0:
+                return "未配置"
+            if value < 1:
+                return f"{value * 1000:.0f}m"
+            return f"{value:.2f} cores"
+
+        def format_bytes(value: float | None) -> str:
+            if value is None:
+                return "-"
+            if value <= 0:
+                return "未配置"
+            units = ["B", "KiB", "MiB", "GiB", "TiB"]
+            current = float(value)
+            index = 0
+            while current >= 1024 and index < len(units) - 1:
+                current /= 1024
+                index += 1
+            return f"{current:.1f} {units[index]}"
+
+        def issue_labels(item: dict) -> list[str]:
+            labels = []
+            if item.get("has_missing_request_issue"):
+                labels.append("缺少 request")
+            if item.get("has_cpu_limit_risk_issue"):
+                labels.append("CPU limit 风险")
+            if item.get("has_memory_limit_risk_issue"):
+                labels.append("内存 limit 风险")
+            if item.get("has_cpu_waste_issue"):
+                labels.append("CPU 浪费")
+            if item.get("has_memory_waste_issue"):
+                labels.append("内存浪费")
+            if item.get("is_sync_path_service"):
+                labels.append("同步链路")
+            elif item.get("is_high_qps_service"):
+                labels.append("高 QPS")
+            return labels
+
+        def severity(item: dict) -> str:
+            if item.get("has_missing_request_issue") or item.get("has_limit_risk_issue"):
+                return "error"
+            if item.get("has_waste_issue"):
+                return "warning"
+            if item.get("requires_request"):
+                return "info"
+            return "normal"
+
+        def severity_score(item: dict) -> int:
+            score = 0
+            if item.get("has_missing_request_issue"):
+                score += 100
+            if item.get("has_limit_risk_issue"):
+                score += 80
+            if item.get("has_waste_issue"):
+                score += 30
+            if item.get("requires_request"):
+                score += 5
+            return score
+
+        cards = []
+        for item in summaries:
+            request_cpu = item.get("request_cpu")
+            limit_cpu = item.get("limit_cpu")
+            avg_cpu = item.get("avg_cpu_usage")
+            short_cpu = item.get("short_term_avg_cpu_usage")
+
+            request_memory = item.get("request_memory_bytes")
+            limit_memory = item.get("limit_memory_bytes")
+            avg_memory = item.get("avg_memory_usage_bytes")
+            short_memory = item.get("short_term_avg_memory_usage_bytes")
+
+            cpu_request_percent = ratio_percent(avg_cpu, request_cpu)
+            cpu_limit_percent = ratio_percent(short_cpu, limit_cpu)
+            memory_request_percent = ratio_percent(avg_memory, request_memory)
+            memory_limit_percent = ratio_percent(short_memory, limit_memory)
+
+            cards.append(
+                {
+                    "service": item.get("service") or "-",
+                    "container": item.get("container") or "-",
+                    "severity": severity(item),
+                    "score": severity_score(item),
+                    "labels": issue_labels(item),
+                    "avg_throughput": item.get("avg_throughput"),
+                    "cpu": {
+                        "request": format_cpu(request_cpu),
+                        "limit": format_cpu(limit_cpu),
+                        "avg": format_cpu(avg_cpu),
+                        "short": format_cpu(short_cpu),
+                        "request_percent": format_percent(cpu_request_percent),
+                        "limit_percent": format_percent(cpu_limit_percent),
+                        "request_width": clamp_width(cpu_request_percent),
+                        "limit_width": clamp_width(cpu_limit_percent),
+                    },
+                    "memory": {
+                        "request": format_bytes(request_memory),
+                        "limit": format_bytes(limit_memory),
+                        "avg": format_bytes(avg_memory),
+                        "short": format_bytes(short_memory),
+                        "request_percent": format_percent(memory_request_percent),
+                        "limit_percent": format_percent(memory_limit_percent),
+                        "request_width": clamp_width(memory_request_percent),
+                        "limit_width": clamp_width(memory_limit_percent),
+                    },
+                }
+            )
+
+        cards.sort(
+            key=lambda card: (
+                -card["score"],
+                card["service"],
+                card["container"],
+            )
+        )
+
+        stats = {
+            "total": len(summaries),
+            "risky": sum(
+                1
+                for item in summaries
+                if item.get("has_missing_request_issue")
+                or item.get("has_waste_issue")
+                or item.get("has_limit_risk_issue")
+            ),
+            "missing_request": sum(
+                1 for item in summaries if item.get("has_missing_request_issue")
+            ),
+            "limit_risk": sum(1 for item in summaries if item.get("has_limit_risk_issue")),
+            "waste": sum(1 for item in summaries if item.get("has_waste_issue")),
+        }
+
+        return templates.TemplateResponse(
+            "resource_utilization_visualization.html",
+            {
+                "request": {},
+                "stats": stats,
+                "cards": cards,
+                "waste_threshold": self.waste_threshold,
+                "limit_risk_threshold": self.limit_risk_threshold,
+            },
+        )

@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
+from arch_auditor.visualization_graph import build_runtime_nodes, trace_edge_label
 
 
 class CircularDependencyAnalyzer(Processor):
@@ -87,29 +88,40 @@ class CircularDependencyAnalyzer(Processor):
                 next_node = cycle[(index + 1) % len(cycle)]
                 edges_in_cycles.add((node, next_node))
 
-        nodes = []
-        for node in graph.nodes():
-            node_data = {
-                "id": str(node),
-                "label": str(node),
-            }
-            if node in nodes_in_cycles:
-                node_data["style"] = {
+        cycle_node_ids = {str(node) for node in nodes_in_cycles}
+
+        def node_style(node_id: str, has_trace: bool, _is_k8s_known: bool) -> dict:
+            if node_id in cycle_node_ids:
+                return {
                     "fill": "#ef4444",
                     "stroke": "#991b1b",
                     "lineWidth": 3,
                 }
-                node_data["size"] = 70
-            else:
-                node_data["style"] = {
+            if has_trace:
+                return {
                     "fill": "#cbd5e1",
                     "stroke": "#64748b",
                     "lineWidth": 1.5,
                 }
-            nodes.append(node_data)
+            return {
+                "fill": "#e2e8f0",
+                "stroke": "#94a3b8",
+                "lineWidth": 1.5,
+                "lineDash": [5, 4],
+            }
+
+        def node_size(node_id: str, _has_trace: bool, _is_k8s_known: bool) -> int:
+            return 70 if node_id in cycle_node_ids else 56
+
+        nodes = build_runtime_nodes(
+            graph,
+            self.context.system_state.extra_attrs,
+            style_for_node=node_style,
+            size_for_node=node_size,
+        )
 
         edges = []
-        for source, target in graph.edges():
+        for source, target, attrs in graph.edges(data=True):
             edge_data = {
                 "source": str(source),
                 "target": str(target),
@@ -125,9 +137,9 @@ class CircularDependencyAnalyzer(Processor):
                 }
                 edge_data["label"] = "cycle"
             else:
-                edge_attrs = graph.edges[source, target]
-                if "call_count" in edge_attrs:
-                    edge_data["label"] = f"calls: {edge_attrs['call_count']}"
+                label = trace_edge_label(attrs)
+                if label:
+                    edge_data["label"] = label
             edges.append(edge_data)
 
         cycle_descriptions = []
@@ -135,7 +147,10 @@ class CircularDependencyAnalyzer(Processor):
             cycle_path = " -> ".join(str(node) for node in (cycle + [cycle[0]]))
             cycle_descriptions.append(f"环路 {index}: {cycle_path}")
 
-        description = "展示服务调用图中检测到的循环依赖。"
+        description = (
+            "展示 Kubernetes 中已部署的服务节点，并在最近 Jaeger 调用图中高亮"
+            "检测到的循环依赖。灰色虚线节点表示当前审计窗口内没有调用边。"
+        )
         if cycle_descriptions:
             description += " " + "; ".join(cycle_descriptions)
         else:
@@ -144,6 +159,7 @@ class CircularDependencyAnalyzer(Processor):
         legend = [
             {"color": "#ef4444", "label": "环路中的服务"},
             {"color": "#cbd5e1", "label": "其他服务"},
+            {"color": "#e2e8f0", "label": "无近期调用数据"},
         ]
 
         return templates.TemplateResponse(

@@ -13,6 +13,11 @@ from arch_auditor.reporter import Reporter, ReportMessage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from arch_auditor.processors import Processor
+from arch_auditor.visualization_graph import (
+    SYNTHETIC_ROOT,
+    k8s_workload_names,
+    runtime_node_ids,
+)
 
 
 class ServiceReporter(Reporter):
@@ -157,6 +162,54 @@ class ArchAuditService:
             return value
         return None
 
+    def _runtime_node_payloads(self, graph: nx.DiGraph, node_ids=None) -> list[dict]:
+        extra_attrs = self.arch_auditor.system_state.extra_attrs
+        k8s_names = k8s_workload_names(extra_attrs)
+        if node_ids is None:
+            node_ids = runtime_node_ids(graph, extra_attrs)
+        priority_lookup = {}
+        if self.priority_manager is not None:
+            priority_lookup = dict(self.priority_manager.list_priorities())
+
+        nodes = []
+        for node_id in sorted(str(node) for node in node_ids if str(node) != SYNTHETIC_ROOT):
+            attrs = graph.nodes.get(node_id, {}) if graph.has_node(node_id) else {}
+            priority = attrs.get("priority")
+            if priority is None:
+                priority = priority_lookup.get(node_id)
+            try:
+                priority_value = int(priority) if priority is not None else None
+            except (TypeError, ValueError):
+                priority_value = None
+
+            status = "healthy"
+            if priority_value == 0:
+                status = "danger"
+            elif priority_value == 1:
+                status = "warning"
+
+            service_level = "standard"
+            if priority_value == 0:
+                service_level = "critical"
+            elif priority_value == 1:
+                service_level = "high"
+            elif priority_value == 3:
+                service_level = "low"
+
+            nodes.append(
+                {
+                    "id": node_id,
+                    "priority": priority_value,
+                    "status": status,
+                    "service_level": service_level,
+                    "in_degree": int(graph.in_degree(node_id)) if graph.has_node(node_id) else 0,
+                    "out_degree": int(graph.out_degree(node_id)) if graph.has_node(node_id) else 0,
+                    "has_recent_trace": graph.has_node(node_id),
+                    "k8s_known": node_id in k8s_names,
+                }
+            )
+        return nodes
+
     def _generate_time_scheduler_lifespan(self):
         async def lifespan(app: FastAPI):
             self._setup_time_scheduled_tasks()
@@ -233,43 +286,13 @@ class ArchAuditService:
             else:
                 working_graph = graph
                 message = "Dominator view requires a single root."
-        priority_lookup = {}
-        if self.priority_manager is not None:
-            priority_lookup = dict(self.priority_manager.list_priorities())
-        nodes = []
-        for node in working_graph.nodes:
-            attrs = graph.nodes[node] or {}
-            priority = attrs.get("priority")
-            if priority is None:
-                priority = priority_lookup.get(node)
-            try:
-                priority_value = int(priority) if priority is not None else None
-            except (TypeError, ValueError):
-                priority_value = None
-
-            status = "healthy"
-            if priority_value == 0:
-                status = "danger"
-            elif priority_value == 1:
-                status = "warning"
-
-            service_level = "standard"
-            if priority_value == 0:
-                service_level = "critical"
-            elif priority_value == 1:
-                service_level = "high"
-            elif priority_value == 3:
-                service_level = "low"
-            nodes.append(
-                {
-                    "id": str(node),
-                    "priority": priority_value,
-                    "status": status,
-                    "service_level": service_level,
-                    "in_degree": int(graph.in_degree(node)),
-                    "out_degree": int(graph.out_degree(node)),
-                }
-            )
+        display_node_ids = set(runtime_node_ids(graph, self.arch_auditor.system_state.extra_attrs))
+        display_node_ids.update(
+            str(node)
+            for node in working_graph.nodes
+            if node is not None and str(node) != SYNTHETIC_ROOT
+        )
+        nodes = self._runtime_node_payloads(graph, display_node_ids)
 
         edges = []
         for source, target, attrs in working_graph.edges(data=True):
@@ -347,6 +370,14 @@ class ArchAuditService:
                     "target": str(target),
                     "dependency_type": attrs.get("dependency_type", "unknown"),
                     "call_count": attrs.get("call_count") or attrs.get("callCount"),
+                    "source_priority": attrs.get("source_priority"),
+                    "target_priority": attrs.get("target_priority"),
+                    "priority_check_status": attrs.get("priority_check_status"),
+                    "priority_violation": attrs.get("priority_violation", False),
+                    "priority_violation_kind": attrs.get("priority_violation_kind"),
+                    "priority_violation_reason": attrs.get(
+                        "priority_violation_reason"
+                    ),
                     "dependency_correlation": attrs.get("dependency_correlation"),
                     "dependency_correlation_status": attrs.get(
                         "dependency_correlation_status"
@@ -381,6 +412,7 @@ class ArchAuditService:
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "count": len(edges),
+            "nodes": self._runtime_node_payloads(graph),
             "edges": edges,
         }
 
@@ -622,6 +654,13 @@ class ArchAuditService:
             ),
             "critical_nodes": summary.get("critical_nodes", []),
             "availability_risk_nodes": summary.get("availability_risk_nodes", []),
+            "p0_services": summary.get("p0_services", []),
+            "isolated_p0_services": summary.get("isolated_p0_services", []),
+            "guaranteed_p0_services": summary.get("guaranteed_p0_services", []),
+            "guaranteed_p0_service_count": summary.get(
+                "guaranteed_p0_service_count"
+            ),
+            "p0_resilience_threshold": summary.get("p0_resilience_threshold"),
             "criticality_scores": summary.get("criticality_scores", {}),
             "dominator_tree": summary.get("dominator_tree", {}),
         }
@@ -770,6 +809,7 @@ class ArchAuditService:
 
         normalized = {
             "analyzed_services": summary.get("analyzed_services", []),
+            "p0_services": summary.get("p0_services", []),
             "min_replicas_for_spread": summary.get(
                 "min_replicas_for_spread"
             ),

@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
+from arch_auditor.visualization_graph import build_runtime_nodes, trace_edge_label
 
 
 class ServiceGraphSource(Processor):
@@ -127,24 +128,36 @@ class ServiceGraphSource(Processor):
         templates = Jinja2Templates(directory=str(templates_dir))
 
         graph = self.context.system_state.graph
-        nodes = [
-            {
-                "id": str(node),
-                "label": str(node),
-                "style": {"fill": "#3b82f6"},
+
+        def node_style(_node_id: str, has_trace: bool, _is_k8s_known: bool) -> dict:
+            if has_trace:
+                return {
+                    "fill": "#3b82f6",
+                    "stroke": "#1d4ed8",
+                    "lineWidth": 2,
+                }
+            return {
+                "fill": "#e2e8f0",
+                "stroke": "#94a3b8",
+                "lineWidth": 1.5,
+                "lineDash": [5, 4],
             }
-            for node in graph.nodes()
-        ]
+
+        nodes = build_runtime_nodes(
+            graph,
+            self.context.system_state.extra_attrs,
+            style_for_node=node_style,
+        )
 
         edges = []
-        for source, target in graph.edges():
+        for source, target, attrs in graph.edges(data=True):
             edge_data = {
                 "source": str(source),
                 "target": str(target),
             }
-            edge_attrs = graph.edges[source, target]
-            if "call_count" in edge_attrs:
-                edge_data["label"] = f"calls: {edge_attrs['call_count']}"
+            label = trace_edge_label(attrs)
+            if label:
+                edge_data["label"] = label
             edges.append(edge_data)
 
         return templates.TemplateResponse(
@@ -152,8 +165,15 @@ class ServiceGraphSource(Processor):
             {
                 "request": {},
                 "title": "服务依赖关系图",
-                "description": "展示服务之间的调用依赖关系。",
+                "description": (
+                    "展示 Kubernetes 中已部署的服务节点，并叠加最近 Jaeger "
+                    "窗口内观测到的调用边。灰色虚线节点表示服务已部署，"
+                    "但当前审计窗口内没有采到调用关系。"
+                ),
                 "graph_data": json.dumps({"nodes": nodes, "edges": edges}),
-                "legend": [{"color": "#3b82f6", "label": "服务节点"}],
+                "legend": [
+                    {"color": "#3b82f6", "label": "有近期调用数据"},
+                    {"color": "#e2e8f0", "label": "无近期调用数据"},
+                ],
             },
         )

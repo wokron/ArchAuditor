@@ -88,6 +88,7 @@ processors:
     audit_log_container: arch-demo
     audit_log_tail_lines: 5000
     audit_log_timeout_seconds: 60
+    include_annotation_markers_with_audit_log: true
   ConfigDriftSource:
     type: K8s
     namespaces:

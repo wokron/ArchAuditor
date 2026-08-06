@@ -126,3 +126,48 @@ def test_dependency_correlation_uses_error_level_for_very_high_correlation():
         "[ERROR]" in msg and "'checkout' -> 'currency'" in msg
         for msg in reporter.messages
     )
+
+
+def test_dependency_correlation_flags_strong_dependency_priority_violation():
+    config = {
+        "processors": {
+            "ServiceGraphSource": {
+                "type": "Mock",
+                "edges": [("frontend", "payment")],
+            },
+            "PrometheusMetricsSource": {
+                "type": "Mock",
+                "metrics": {},
+            },
+            "ServiceDependencySource": {
+                "type": "Mock",
+                "dependencies": [
+                    {
+                        "from": "frontend",
+                        "to": "payment",
+                        "type": "strong",
+                        "correlation": 0.91,
+                        "call_count": 300,
+                    }
+                ],
+            },
+            "DependencyCorrelationAnalyzer": {
+                "warning_correlation_threshold": 0.7,
+                "error_correlation_threshold": 0.9,
+            },
+        }
+    }
+
+    reporter = MockReporter()
+    auditor = ArchAuditor(config, reporter=reporter)
+    auditor.priority_manager.set_priority("frontend", 0)
+    auditor.priority_manager.set_priority("payment", 2)
+    auditor.invoke()
+
+    graph = auditor.system_state.graph
+    assert graph.edges["frontend", "payment"]["priority_violation"] is True
+    assert (
+        graph.edges["frontend", "payment"]["priority_violation_kind"]
+        == "strong_dependency_lower_priority"
+    )
+    assert any("Priority violation" in msg for msg in reporter.messages)

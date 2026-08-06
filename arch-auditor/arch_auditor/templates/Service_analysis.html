@@ -809,6 +809,11 @@
       const statusStyle = statusMeta[status] || statusMeta.healthy;
       const title = node.id;
       const isPrimary = node.priority === 0 || node.id === currentService;
+      const hasRecentTrace = node.has_recent_trace !== false;
+      const traceClass = hasRecentTrace ? "" : "opacity-60 grayscale border-dashed";
+      const traceBadge = hasRecentTrace
+        ? ""
+        : '<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded">无近期流量</span>';
 
       const wrapper = document.createElement("div");
       wrapper.className = "absolute z-10 cursor-pointer node-card";
@@ -820,8 +825,8 @@
       if (isPrimary) {
         wrapper.innerHTML = `
           <div class="relative">
-            <div class="absolute -inset-1 bg-primary/20 rounded-xl blur-md"></div>
-            <div class="flex items-center gap-3 bg-white pl-1 pr-4 py-2 rounded-lg shadow-xl border border-primary/20 ${meta.accent} border-l-4 w-56 relative overflow-hidden ring-2 ring-primary/10">
+            ${hasRecentTrace ? '<div class="absolute -inset-1 bg-primary/20 rounded-xl blur-md"></div>' : ""}
+            <div class="flex items-center gap-3 bg-white pl-1 pr-4 py-2 rounded-lg shadow-xl border border-primary/20 ${meta.accent} border-l-4 w-56 relative overflow-hidden ring-2 ring-primary/10 ${traceClass}">
               <div class="size-12 flex items-center justify-center rounded-md bg-primary text-white shadow-lg shadow-primary/30">
                 <span class="material-symbols-outlined text-[24px]">${meta.icon}</span>
               </div>
@@ -830,6 +835,7 @@
                 <span class="text-base font-bold text-text-main">${escapeHtml(title)}</span>
               </div>
               <div class="absolute top-2 right-2 flex items-center gap-1">
+                ${traceBadge}
                 ${node.priority === 0 ? '<span class="text-[10px] font-bold text-danger bg-danger/10 px-1.5 rounded">P0</span>' : ""}
                 <div class="size-2 ${statusStyle.dot} rounded-full ${statusStyle.shadow} ${status === "danger" ? "animate-pulse" : ""}"></div>
               </div>
@@ -838,7 +844,7 @@
         `;
       } else {
         wrapper.innerHTML = `
-          <div class="flex items-center gap-3 bg-white pl-1 pr-4 py-1 rounded-lg shadow-card border border-slate-100 ${meta.accent} border-l-4 w-48 relative overflow-hidden">
+          <div class="flex items-center gap-3 bg-white pl-1 pr-4 py-1 rounded-lg shadow-card border border-slate-100 ${meta.accent} border-l-4 w-48 relative overflow-hidden ${traceClass}">
             <div class="size-10 flex items-center justify-center rounded-md bg-slate-50 ${meta.iconClass}">
               <span class="material-symbols-outlined text-[20px]">${meta.icon}</span>
             </div>
@@ -846,7 +852,10 @@
               <span class="text-xs text-text-secondary font-medium uppercase tracking-wide">${meta.label}</span>
               <span class="text-sm font-bold text-text-main">${escapeHtml(title)}</span>
             </div>
-            <div class="absolute top-2 right-2 size-2 ${statusStyle.dot} rounded-full ${statusStyle.shadow}"></div>
+            <div class="absolute top-2 right-2 flex items-center gap-1">
+              ${traceBadge}
+              <div class="size-2 ${statusStyle.dot} rounded-full ${statusStyle.shadow}"></div>
+            </div>
           </div>
         `;
       }

@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from ...processors import Processor
 from arch_auditor.reporter import ReportMessage, ReportType
+from arch_auditor.visualization_graph import build_runtime_nodes
 
 
 class OverDecompositionAnalyzer(Processor):
@@ -490,7 +491,7 @@ class OverDecompositionAnalyzer(Processor):
             co_deployed_edges.add((service_a, service_b))
             co_deployed_edges.add((service_b, service_a))
 
-        def node_style(node_id: str) -> dict:
+        def node_style(node_id: str, has_trace: bool, _is_k8s_known: bool) -> dict:
             if node_id in long_path_nodes:
                 return {
                     "fill": "#ef4444",
@@ -515,25 +516,31 @@ class OverDecompositionAnalyzer(Processor):
                     "stroke": "#0f766e",
                     "lineWidth": 2,
                 }
+            if not has_trace:
+                return {
+                    "fill": "#e2e8f0",
+                    "stroke": "#94a3b8",
+                    "lineWidth": 1.5,
+                    "lineDash": [5, 4],
+                }
             return {
                 "fill": "#cbd5e1",
                 "stroke": "#64748b",
                 "lineWidth": 1.5,
             }
 
-        nodes = []
-        for node in graph.nodes():
-            node_id = str(node)
-            if node_id == self.synthetic_root:
-                continue
-            nodes.append(
-                {
-                    "id": node_id,
-                    "label": node_id,
-                    "style": node_style(node_id),
-                    "size": 70 if node_id in long_path_nodes else 60,
-                }
-            )
+        def node_size(node_id: str, has_trace: bool, _is_k8s_known: bool) -> int:
+            if node_id in long_path_nodes:
+                return 70
+            return 56 if has_trace else 48
+
+        nodes = build_runtime_nodes(
+            graph,
+            self.context.system_state.extra_attrs,
+            style_for_node=node_style,
+            size_for_node=node_size,
+            synthetic_root=self.synthetic_root,
+        )
 
         def edge_style(edge_key: tuple[str, str]) -> tuple[dict, str | None]:
             if edge_key in long_path_edges:
@@ -642,7 +649,8 @@ class OverDecompositionAnalyzer(Processor):
             "展示过度拆分相关信号：红色表示达到阈值的长调用链；"
             "橙色管道服务表示只有一个上游和一个下游的中转型服务，容易把功能拆得过细；"
             "紫色扇出放大服务表示一个上游请求被该服务放大为多次下游调用，常见于 N+1 查询；"
-            "青色表示存在直接依赖且经常共同部署的服务对。 "
+            "青色表示存在直接依赖且经常共同部署的服务对；"
+            "灰色虚线节点表示服务已部署，但当前审计窗口内没有 Jaeger 调用边。 "
             f"长调用链阈值为 {summary.get('path_service_threshold')} 个服务；"
             f"当前发现 {summary.get('long_path_count', 0)} 条，"
             f"最多展示 {summary.get('long_path_limit', self.long_path_limit)} 条：{paths_text}。"
@@ -654,6 +662,7 @@ class OverDecompositionAnalyzer(Processor):
             {"color": "#f59e0b", "label": "管道服务"},
             {"color": "#14b8a6", "label": "共同部署服务对"},
             {"color": "#cbd5e1", "label": "其他服务"},
+            {"color": "#e2e8f0", "label": "无近期调用数据"},
         ]
 
         return templates.TemplateResponse(

@@ -22,7 +22,7 @@ class SinglePointAnalyzer(Processor):
 
     @staticmethod
     def requires() -> list[str]:
-        return ["SingleRootDAGSource", "K8sConfigSource"]
+        return ["SingleRootDAGSource", "K8sConfigSource", "ServicePrioritySource"]
 
     def init(self, config) -> bool:
         config = config or {}
@@ -58,7 +58,41 @@ class SinglePointAnalyzer(Processor):
         self.root = roots[0]
         self.dominator_tree = nx.immediate_dominators(graph, start=self.root)
         self._calculate_criticality()
-        availability_risks = self._check_availability_guarantees()
+        p0_services = self._p0_services()
+        isolated_p0_services = self._isolated_services(p0_services)
+        for service in isolated_p0_services:
+            self.context.reporter.report(
+                ReportMessage(
+                    report_from=self.name(),
+                    report_type=ReportType.ERROR,
+                    message=(
+                        f"P0 service '{service}' is isolated in the service graph. "
+                        "A critical service should not be disconnected from the core call graph."
+                    ),
+                )
+            )
+
+        availability_risks = self._check_availability_guarantees(
+            force_services=set(p0_services)
+        )
+        risky_availability_services = {
+            item.get("service") for item in availability_risks if item.get("service")
+        }
+        guaranteed_p0_services = [
+            service for service in p0_services if service not in risky_availability_services
+        ]
+        if p0_services and len(guaranteed_p0_services) < 3:
+            self.context.reporter.report(
+                ReportMessage(
+                    report_from=self.name(),
+                    report_type=ReportType.WARNING,
+                    message=(
+                        "After removing P0 services without availability guarantees, "
+                        f"only {len(guaranteed_p0_services)} P0 service(s) remain. "
+                        "This is below the resilience threshold of 3."
+                    ),
+                )
+            )
 
         root_criticality = self.criticality_scores.get(self.root, 0)
         critical_nodes = []
@@ -96,6 +130,11 @@ class SinglePointAnalyzer(Processor):
             "root_count": len(roots),
             "critical_nodes": critical_nodes,
             "availability_risk_nodes": availability_risks,
+            "p0_services": p0_services,
+            "isolated_p0_services": isolated_p0_services,
+            "guaranteed_p0_services": guaranteed_p0_services,
+            "guaranteed_p0_service_count": len(guaranteed_p0_services),
+            "p0_resilience_threshold": 3,
             "criticality_scores": {
                 str(node): score for node, score in self.criticality_scores.items()
             },
@@ -133,10 +172,34 @@ class SinglePointAnalyzer(Processor):
         node_data = self.context.system_state.graph.nodes[node]
         return node_data.get("call_count", 0)
 
-    def _check_availability_guarantees(self) -> list[dict]:
+    def _p0_services(self) -> list[str]:
+        services = []
+        for node, attrs in self.context.system_state.graph.nodes(data=True):
+            try:
+                priority = int(attrs.get("priority"))
+            except (TypeError, ValueError):
+                continue
+            if priority == 0 and str(node) != "<SOURCE>":
+                services.append(str(node))
+        return sorted(services)
+
+    def _isolated_services(self, services: list[str]) -> list[str]:
+        graph = self.context.system_state.graph
+        isolated = []
+        for service in services:
+            if not graph.has_node(service):
+                continue
+            if graph.in_degree(service) == 0 and graph.out_degree(service) == 0:
+                isolated.append(service)
+        return sorted(isolated)
+
+    def _check_availability_guarantees(
+        self, force_services: set[str] | None = None
+    ) -> list[dict]:
         graph = self.context.system_state.graph
         k8s = self.context.system_state.extra_attrs.get("k8s_configs", {}) or {}
         deployments = k8s.get("deployments", []) or []
+        force_services = force_services or set()
 
         deployment_by_service = {}
         for dep in deployments:
@@ -163,7 +226,10 @@ class SinglePointAnalyzer(Processor):
                 continue
 
             percentage = (score / root_criticality) * 100
-            if percentage <= self.warning_percentage_threshold:
+            if (
+                percentage <= self.warning_percentage_threshold
+                and str(node) not in force_services
+            ):
                 continue
 
             dep = deployment_by_service.get(str(node))
@@ -189,6 +255,7 @@ class SinglePointAnalyzer(Processor):
                 "replicas": replicas,
                 "ready_replicas": ready_replicas,
                 "criticality_percentage": round(percentage, 2),
+                "is_p0_service": str(node) in force_services,
                 "missing_request_containers": missing_request_containers,
                 "has_replica_risk": replicas < 2 or ready_replicas < 2,
                 "has_request_risk": bool(missing_request_containers),
@@ -297,14 +364,35 @@ class SinglePointAnalyzer(Processor):
             if percentage > self.warning_percentage_threshold:
                 critical_nodes.append(f"{node} ({percentage:.1f}%)")
 
+        summary = self.context.system_state.extra_attrs.get("single_point_summary", {})
+        p0_services = summary.get("p0_services", []) or []
+        isolated_p0_services = summary.get("isolated_p0_services", []) or []
+        availability_risks = summary.get("availability_risk_nodes", []) or []
+        guaranteed_p0_count = summary.get("guaranteed_p0_service_count")
+        p0_threshold = summary.get("p0_resilience_threshold")
+
         description = (
-            "支配树用于展示哪些服务一旦失败，会显著影响下游连通性和流量路径。"
+            "支配树用于识别少量服务故障后是否会破坏核心调用连通性。"
+            "本页同时对照 P0 服务和可用性保障配置：P0 服务不应孤立，"
+            "关键节点应具备足够副本和 resource request。"
         )
         if critical_nodes:
             description += (
                 " 当前关键单点服务："
                 + ", ".join(critical_nodes)
                 + "。"
+            )
+        if p0_services:
+            description += " P0 服务：" + ", ".join(p0_services) + "。"
+        if isolated_p0_services:
+            description += " 孤立 P0 服务：" + ", ".join(isolated_p0_services) + "。"
+        if availability_risks:
+            risk_names = [str(item.get("service")) for item in availability_risks[:5]]
+            description += " 缺少可用性保障：" + ", ".join(risk_names) + "。"
+        if guaranteed_p0_count is not None and p0_threshold is not None:
+            description += (
+                f" 去掉缺少保障的节点后，剩余 P0 服务数为 {guaranteed_p0_count}，"
+                f"阈值为 {p0_threshold}。"
             )
 
         legend = [

@@ -1039,7 +1039,7 @@
           return "/ServiceAnalysisVisualization?issueType=circular&timeRange=24h";
         }
         if (message.includes("priority violation") || message.includes("priority")) {
-          return "/ServiceAnalysisVisualization?issueType=hierarchy&timeRange=24h";
+          return "/vis/DependencyCorrelationAnalyzer";
         }
         if (
           source.includes("k8s") ||
@@ -1275,42 +1275,21 @@
       function buildDependencyIssue(data) {
         const error = resultError(data);
         const edges = asArray(data && data.edges);
-        const latencyThresholdMs = 1000;
-        const errorRateThreshold = 0.05;
-        const riskyEdges = edges.filter((edge) => {
-          const errorCount = numberOrNull(edge.edge_error_count) || 0;
-          const errorRate = numberOrNull(edge.edge_error_rate) || 0;
-          const avgDuration = numberOrNull(edge.edge_avg_duration_ms) || 0;
-          const sourceLatency = numberOrNull(edge.source_latest_latency) || 0;
-          const targetLatency = numberOrNull(edge.target_latest_latency) || 0;
-          const sourceErrorRate = numberOrNull(edge.source_latest_error_rate) || 0;
-          const targetErrorRate = numberOrNull(edge.target_latest_error_rate) || 0;
-          const status = String(edge.dependency_correlation_status || "").toLowerCase();
-          return (
-            errorCount > 0 ||
-            errorRate >= errorRateThreshold ||
-            avgDuration >= latencyThresholdMs ||
-            sourceLatency >= latencyThresholdMs ||
-            targetLatency >= latencyThresholdMs ||
-            sourceErrorRate >= errorRateThreshold ||
-            targetErrorRate >= errorRateThreshold ||
-            (status && !["ok", "normal", "stable", "unknown"].includes(status))
-          );
-        });
+        const priorityLabel = (value) =>
+          value === null || typeof value === "undefined" ? "P?" : `P${value}`;
+        const violationEdges = edges.filter((edge) => edge.priority_violation);
+        const missingPriorityEdges = edges.filter(
+          (edge) => edge.priority_check_status === "missing_priority"
+        );
+        const strongEdges = edges.filter(
+          (edge) => String(edge.dependency_type || "").toLowerCase() === "strong"
+        );
         const edgeRiskScore = (edge) => {
           return (
-            (numberOrNull(edge.edge_error_count) || 0) * 1000 +
-            Math.max(
-              numberOrNull(edge.edge_avg_duration_ms) || 0,
-              numberOrNull(edge.source_latest_latency) || 0,
-              numberOrNull(edge.target_latest_latency) || 0
-            ) +
-            Math.max(
-              numberOrNull(edge.edge_error_rate) || 0,
-              numberOrNull(edge.source_latest_error_rate) || 0,
-              numberOrNull(edge.target_latest_error_rate) || 0
-            ) *
-              10000
+            (edge.priority_violation ? 100000 : 0) +
+            (String(edge.dependency_type || "").toLowerCase() === "strong" ? 1000 : 0) +
+            ((numberOrNull(edge.dependency_correlation) || 0) * 100) +
+            (numberOrNull(edge.call_count) || 0)
           );
         };
         const topRows = edges
@@ -1319,71 +1298,41 @@
           .slice(0, 6)
           .map((edge) => [
             `${edge.source || "-"} -> ${edge.target || "-"}`,
-            formatNumber(edge.call_count, 0),
-            formatMs(
-              numberOrNull(edge.edge_avg_duration_ms) ??
-                Math.max(
-                  numberOrNull(edge.source_latest_latency) || 0,
-                  numberOrNull(edge.target_latest_latency) || 0
-                )
-            ),
-            formatPercent(
-              numberOrNull(edge.edge_error_rate) ??
-                Math.max(
-                  numberOrNull(edge.source_latest_error_rate) || 0,
-                  numberOrNull(edge.target_latest_error_rate) || 0
-                )
-            ),
+            `${priorityLabel(edge.source_priority)} -> ${priorityLabel(edge.target_priority)}`,
+            String(edge.dependency_type || "unknown"),
+            edge.priority_violation
+              ? edge.priority_violation_reason || "优先级约束违规"
+              : edge.priority_check_status === "missing_priority"
+                ? "缺少优先级配置"
+                : `相关性 ${formatNumber(edge.dependency_correlation)}`,
           ]);
         return {
           key: "dependency",
           group: "runtime",
           title: "依赖关系异常",
-          subtitle: "关注依赖边延迟、错误率和调用相关性。",
+          subtitle: "关注强弱依赖关系是否违反 P0/P1/P2 服务优先级约束。",
           icon: "route",
-          count: error ? 0 : riskyEdges.length,
+          count: error ? 0 : violationEdges.length,
           primary: `${edges.length} 条边`,
-          secondary: error || `异常边 ${riskyEdges.length} 条`,
-          severity: issueSeverity(riskyEdges.length, Boolean(error)),
+          secondary:
+            error ||
+            `优先级违规 ${violationEdges.length} 条 / 强依赖 ${strongEdges.length} 条`,
+          severity: issueSeverity(violationEdges.length, Boolean(error)),
           detailHtml:
+            renderVisualizationLink(
+              "/vis/DependencyCorrelationAnalyzer",
+              "打开依赖异常可视化"
+            ) +
             renderMetricGrid([
               { label: "依赖边总数", value: String(edges.length) },
-              { label: "异常依赖边", value: String(riskyEdges.length) },
-              {
-                label: "最高平均延迟",
-                value: formatMs(
-                  Math.max(
-                    0,
-                    ...edges.map((edge) =>
-                      Math.max(
-                        numberOrNull(edge.edge_avg_duration_ms) || 0,
-                        numberOrNull(edge.source_latest_latency) || 0,
-                        numberOrNull(edge.target_latest_latency) || 0
-                      )
-                    )
-                  )
-                ),
-              },
-              {
-                label: "错误边数量",
-                value: String(
-                  edges.filter(
-                    (edge) =>
-                      (numberOrNull(edge.edge_error_count) || 0) > 0 ||
-                      (numberOrNull(edge.edge_error_rate) || 0) >=
-                        errorRateThreshold ||
-                      (numberOrNull(edge.source_latest_error_rate) || 0) >=
-                        errorRateThreshold ||
-                      (numberOrNull(edge.target_latest_error_rate) || 0) >=
-                        errorRateThreshold
-                  ).length
-                ),
-              },
+              { label: "强依赖边", value: String(strongEdges.length) },
+              { label: "优先级违规", value: String(violationEdges.length) },
+              { label: "缺少优先级", value: String(missingPriorityEdges.length) },
             ]) +
             renderDetailTable(
-              ["依赖边", "调用次数", "耗时信号", "错误率信号"],
+              ["依赖边", "优先级", "依赖强度", "判断结果"],
               topRows,
-              "暂无依赖边数据，请先触发审计并确认 Jaeger 有链路数据。"
+              "暂无依赖边数据，请先触发审计、确认 Jaeger 有链路数据，并配置服务优先级。"
             ),
         };
       }
@@ -1420,6 +1369,10 @@
           secondary: error || `疑似单体 ${risky.length} 个`,
           severity: issueSeverity(risky.length, Boolean(error)),
           detailHtml:
+            renderVisualizationLink(
+              "/vis/MonolithicServiceAnalyzer",
+              "打开单体服务可视化"
+            ) +
             renderMetricGrid([
               { label: "分析服务数", value: String(items.length) },
               { label: "疑似单体", value: String(risky.length) },
@@ -1594,6 +1547,10 @@
           secondary: error || `异常 ${risky.length} 个`,
           severity: issueSeverity(risky.length, Boolean(error)),
           detailHtml:
+            renderVisualizationLink(
+              "/vis/ResourceUtilizationAnalyzer",
+              "打开资源利用可视化"
+            ) +
             renderMetricGrid([
               { label: "容器样本", value: String(items.length) },
               { label: "资源异常", value: String(risky.length) },
@@ -1724,6 +1681,7 @@
         const singleZone = asArray(summary.single_zone_services);
         const colocated = asArray(summary.co_located_service_groups);
         const placements = asArray(summary.placements);
+        const p0Services = asArray(summary.p0_services);
         const issueCount = sameNode.length + singleZone.length + colocated.length;
         const rows = [
           ...sameNode.slice(0, 4).map((item) => [
@@ -1758,6 +1716,7 @@
           detailHtml:
             renderVisualizationLink("/vis/IsolationAnalyzer", "打开物理隔离可视化") +
             renderMetricGrid([
+              { label: "P0 服务", value: String(p0Services.length), hint: p0Services.join(", ") },
               { label: "放置记录", value: String(placements.length) },
               { label: "副本同节点", value: String(sameNode.length) },
               { label: "单可用区", value: String(singleZone.length) },

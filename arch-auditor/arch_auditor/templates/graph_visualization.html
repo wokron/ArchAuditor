@@ -114,6 +114,21 @@
             height: 12px;
             border-radius: 50%;
         }
+
+        .tooltip {
+            position: absolute;
+            display: none;
+            pointer-events: none;
+            z-index: 10;
+            max-width: 280px;
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.92);
+            color: #ffffff;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.45;
+            box-shadow: 0 10px 20px rgb(15 23 42 / 0.2);
+        }
     </style>
 </head>
 
@@ -144,6 +159,7 @@
             {% endif %}
         </div>
     </div>
+    <div class="tooltip" id="tooltip"></div>
 
     <script>
         const graphData = {{ graph_data | safe }};
@@ -242,6 +258,27 @@
             const { item } = evt;
             const model = item.getModel();
             console.log('Node clicked:', model);
+        });
+
+        const tooltip = document.getElementById('tooltip');
+        graph.on('node:mouseenter', (evt) => {
+            const model = evt.item.getModel();
+            const status = model.trace_status === 'no_recent_trace'
+                ? '无近期调用边'
+                : '有近期调用数据';
+            tooltip.innerHTML = `
+                <div><strong>${model.id}</strong></div>
+                <div>${status}</div>
+                ${model.description ? `<div>${model.description}</div>` : ''}
+            `;
+            tooltip.style.display = 'block';
+        });
+        graph.on('node:mousemove', (evt) => {
+            tooltip.style.left = `${evt.clientX + 12}px`;
+            tooltip.style.top = `${evt.clientY + 12}px`;
+        });
+        graph.on('node:mouseleave', () => {
+            tooltip.style.display = 'none';
         });
     </script>
 </body>

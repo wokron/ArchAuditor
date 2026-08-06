@@ -31,6 +31,7 @@ class IsolationAnalyzer(Processor):
 
         summary = {
             "analyzed_services": [],
+            "p0_services": [],
             "min_replicas_for_spread": self.min_replicas_for_spread,
             "co_located_service_groups": [],
             "same_node_replica_services": [],
@@ -41,6 +42,11 @@ class IsolationAnalyzer(Processor):
         }
 
         placements_by_service: dict[str, list[dict]] = defaultdict(list)
+        placements_by_node: dict[str, list[dict]] = defaultdict(list)
+        priorities = self._service_priorities()
+        p0_services = {service for service, priority in priorities.items() if priority == 0}
+        summary["p0_services"] = sorted(p0_services)
+
         for pod in pods:
             if not isinstance(pod, dict):
                 continue
@@ -55,10 +61,19 @@ class IsolationAnalyzer(Processor):
                 "namespace": pod.get("namespace"),
                 "node": node,
                 "zone": zone,
+                "priority": priorities.get(service),
                 "labels": dict(pod.get("labels") or {}),
             }
             placements_by_service[service].append(placement)
+            placements_by_node[node].append(placement)
             summary["placements"].append(placement)
+
+        self._check_p0_service_colocation(
+            placements_by_node=placements_by_node,
+            p0_services=p0_services,
+            node_details=node_details,
+            summary=summary,
+        )
 
         for service in sorted(placements_by_service):
             placements = placements_by_service[service]
@@ -155,6 +170,61 @@ class IsolationAnalyzer(Processor):
             )
         )
         self.context.system_state.extra_attrs["isolation_summary"] = summary
+
+    def _service_priorities(self) -> dict[str, int]:
+        raw = self.context.system_state.extra_attrs.get("service_priorities", {}) or {}
+        result: dict[str, int] = {}
+        for service, priority in raw.items():
+            try:
+                result[str(service)] = int(priority)
+            except (TypeError, ValueError):
+                continue
+        return result
+
+    def _check_p0_service_colocation(
+        self,
+        placements_by_node: dict[str, list[dict]],
+        p0_services: set[str],
+        node_details: dict,
+        summary: dict,
+    ) -> None:
+        if len(p0_services) < 2:
+            return
+
+        for node, placements in sorted(placements_by_node.items()):
+            services = sorted(
+                {
+                    placement.get("service")
+                    for placement in placements
+                    if placement.get("service") in p0_services
+                }
+            )
+            if len(services) < 2:
+                continue
+            pods = sorted(
+                placement.get("pod")
+                for placement in placements
+                if placement.get("service") in services and placement.get("pod")
+            )
+            item = {
+                "node": node,
+                "zone": (node_details.get(node) or {}).get("zone"),
+                "services": services,
+                "pods": pods,
+                "replica_count": len(pods),
+                "reason": "p0_services_on_same_node",
+            }
+            summary["co_located_service_groups"].append(item)
+            self.context.reporter.report(
+                ReportMessage(
+                    report_from=self.name(),
+                    report_type=ReportType.ERROR,
+                    message=(
+                        f"P0 services {services} are co-located on node '{node}'. "
+                        "Critical services should be physically isolated."
+                    ),
+                )
+            )
 
     @staticmethod
     def _resolve_service_name(pod: dict) -> str | None:
@@ -395,9 +465,13 @@ class IsolationAnalyzer(Processor):
 
         issue_count = len(same_node_items) + len(single_zone_items) + len(colocated_items)
         risk_service_text = ", ".join(sorted(risk_services)) or "暂无"
+        p0_services = ", ".join(summary.get("p0_services", []) or []) or "未配置"
         description = (
             "展示 Kubernetes 副本在可用区、节点和 Pod 三层的放置关系。"
+            "按照架构问题定义，重点关注 P0 服务之间是否落在同一节点，"
+            "以及同一关键服务的多个副本是否缺少节点/AZ 分散。"
             "红色表示同一服务多个副本落在同一节点，橙色表示服务副本集中在单个可用区。"
+            f" P0 服务：{p0_services}。"
             f" 当前隔离风险 {issue_count} 项，风险服务：{risk_service_text}。"
         )
         if same_node_items:

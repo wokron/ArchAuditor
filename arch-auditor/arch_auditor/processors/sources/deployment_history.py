@@ -55,6 +55,9 @@ class DeploymentHistorySource(Processor):
         self.audit_log_read_mode = str(
             config_dict.get("audit_log_read_mode", "auto")
         ).lower()
+        self.include_annotation_markers_with_audit_log = bool(
+            config_dict.get("include_annotation_markers_with_audit_log", False)
+        )
         self.audit_log_tail_lines = int(config_dict.get("audit_log_tail_lines", 5000))
         self.audit_log_timeout_seconds = int(
             config_dict.get("audit_log_timeout_seconds", 15)
@@ -120,9 +123,13 @@ class DeploymentHistorySource(Processor):
         annotation_events = self._read_deployment_annotation_markers()
 
         if audit_events:
-            events = _merge_history_events(audit_events, annotation_events)
+            events = (
+                _merge_history_events(audit_events, annotation_events)
+                if self.include_annotation_markers_with_audit_log
+                else audit_events
+            )
             source = "k8s_audit_log"
-            if annotation_events:
+            if annotation_events and self.include_annotation_markers_with_audit_log:
                 source = "k8s_audit_log+deployment_annotations"
             self.context.system_state.extra_attrs["deployment_history"] = events
             self.context.system_state.extra_attrs["deployment_history_source"] = (
